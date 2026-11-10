@@ -2,7 +2,7 @@
 function assetUrl(path) {
   path = String(path || "").replace(/^\/+/, "");
   const base = (typeof window.ASSET_BASE === "string") ? window.ASSET_BASE + path : path;
-  const v = window.MYPET_ASSET_V || "6";
+  const v = window.MYPET_ASSET_V || "7";
   return base + (base.indexOf("?") >= 0 ? "&" : "?") + "v=" + v;
 }
 
@@ -18,12 +18,12 @@ function assetUrl(path) {
     bed:    { x: 736, y: 745, r: 80, stand: { x: 736, y: 700 }, sleep: { x: 736, y: 745 }, action: "nap", label: "nap" },
   };
   const FLOWERS = [
-    { x: 215, y: 230 }, { x: 805, y: 240 }, { x: 798, y: 389 },
-    { x: 700, y: 467 }, { x: 216, y: 546 }, { x: 790, y: 601 },
-    { x: 286, y: 756 }, { x: 206, y: 765 }, { x: 430,  y: 683 },
-    { x: 400, y: 280 }, { x: 560, y: 260 }, { x: 640, y: 520 },
+    { x: 200, y: 400 }, { x: 455, y: 230 }, { x: 530, y: 250 },
+    { x: 470, y: 430 }, { x: 560, y: 620 }, { x: 400, y: 500 },
+    { x: 180, y: 680 }, { x: 500, y: 800 }, { x: 870, y: 450 },
+    { x: 880, y: 650 }, { x: 360, y: 360 }, { x: 620, y: 430 },
   ];
-  const WALK = { x0: 175, y0: 210, x1: 850, y1: 820 };
+  const WALK = { x0: 160, y0: 200, x1: 880, y1: 850 };
   const COSTUME_TEX = { crown: "costume_crown", bow: "costume_bow", hat: "costume_hat", witch: "costume_witch" };
   // Per-frame head anchors, from feet (origin 0.5,1). Sit low on the forehead,
   // not on the wool peak. walk1–4 share idle's body; only hooves move.
@@ -51,7 +51,8 @@ function assetUrl(path) {
     hat:   { x: 0.5, y: 1 },
     witch: { x: 0.5, y: 1 },
   };
-  const COSTUME_SCALE = { crown: 1.08, bow: 1.08, hat: 1.08, witch: 1.08 };
+  const COSTUME_SCALE = { crown: 1.08, bow: 1.08, hat: 1.08, witch: 1.26 };
+  const COSTUME_SIZE = { crown: [72, 28], bow: [48, 32], hat: [58, 36], witch: [58, 40], collar: [30, 14] };
   // Sleep uses the shared HEAD.sleep sit (centered on the face, snug on the
   // bangs). Do not reuse standing-pose ear/brim nudges, or hats drift right
   // and float on the wool. Crown has 8px of empty padding under the flowers.
@@ -81,9 +82,9 @@ function assetUrl(path) {
   const STATIC_SAVE = "mypet-static-v1";
   // Tappable park toys, in field pixels.
   const PARK = {
-    hay:    { x: 380, y: 655, r: 70, kind: "hop",    standL: { x: 295, y: 655 }, standR: { x: 475, y: 655 }, label: "hay" },
-    slide:  { x: 590, y: 515, r: 90, kind: "slide",  start: { x: 515, y: 550 }, top: { x: 545, y: 410 }, end: { x: 700, y: 590 }, label: "slide" },
-    tunnel: { x: 220, y: 530, r: 80, kind: "tunnel", start: { x: 140, y: 545 }, end: { x: 310, y: 545 }, label: "tunnel" },
+    hay:    { x: 300, y: 820, r: 70, kind: "hop",    standL: { x: 215, y: 820 }, standR: { x: 400, y: 820 }, label: "hay" },
+    slide:  { x: 760, y: 580, r: 90, kind: "slide",  start: { x: 685, y: 615 }, top: { x: 715, y: 475 }, end: { x: 850, y: 660 }, label: "slide" },
+    tunnel: { x: 250, y: 580, r: 80, kind: "tunnel", start: { x: 170, y: 595 }, end: { x: 340, y: 595 }, label: "tunnel" },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -380,8 +381,10 @@ function assetUrl(path) {
         canvas.addEventListener("touchmove", (e) => { if (brushMode) e.preventDefault(); }, { passive: false });
       }
 
+      this.butterflies = [];
       this.time.addEvent({ delay: 18000, loop: true, callback: () => this.spawnButterflies() });
       this.time.delayedCall(4000, () => this.spawnButterflies());
+      this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.layoutWear, this);
 
       this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, "Tap the trough, water, hay, or a flower", {
         fontFamily: "Nunito, sans-serif", fontSize: "16px", color: "#4a3426",
@@ -405,26 +408,48 @@ function assetUrl(path) {
     poseName() {
       if (this.mode === "sleep") return "sleep";
       const tex = this.sheep.texture && this.sheep.texture.key;
-      const frame = this.sheep.anims && this.sheep.anims.currentFrame;
-      const frameKey = frame && (frame.textureKey || (frame.frame && frame.frame.textureKey));
-      if (frameKey && HEAD[frameKey]) return frameKey;
-      if (tex && HEAD[tex]) return tex;
-      if (this.mode === "walk" || (this.sheep.anims && this.sheep.anims.isPlaying && this.sheep.anims.currentAnim && this.sheep.anims.currentAnim.key === "walk")) {
-        return "walk";
+      const anims = this.sheep.anims;
+      const playing = !!(anims && anims.isPlaying);
+      if (playing) {
+        const frame = anims.currentFrame;
+        const frameKey = frame && (frame.textureKey || (frame.frame && frame.frame.textureKey));
+        if (frameKey && HEAD[frameKey]) return frameKey;
+        if (this.mode === "walk" || (anims.currentAnim && anims.currentAnim.key === "walk")) return "walk";
       }
+      if (tex && HEAD[tex]) return tex;
+      if (this.mode === "walk") return "walk";
       if (tex && String(tex).indexOf("walk") === 0) return "walk";
       return "idle";
     }
 
     layoutWear() {
+      if (!this.sheep) return;
       const s = this.fScale;
-      if (this.mode === "sleep" && this.sheep) this.sheep.angle = 0;
-      this.blanket.x = this.sheep.x;
-      this.blanket.y = this.sheep.y - 10 * s;
-      this.blanket.setDepth(this.sheep.y - 1);
-      this.blanket.setVisible(false);
+      if (this.mode === "sleep") this.sheep.angle = 0;
+      const sx = Math.abs(this.sheep.scaleX) || s;
+      const sy = Math.abs(this.sheep.scaleY) || s;
+      const flip = this.sheep.flipX ? -1 : 1;
+      const ang = this.sheep.angle || 0;
+      const rad = ang * Math.PI / 180;
+      const cos = Math.cos(rad), sin = Math.sin(rad);
+      const pin = (sprite, ox, oy, mul, origin, depthOff) => {
+        if (!sprite) return;
+        const lx = ox * sx * flip;
+        const ly = oy * sy;
+        sprite.setOrigin(origin.x, origin.y);
+        sprite.setScale(sx * mul, sy * mul);
+        sprite.setFlipX(!!this.sheep.flipX);
+        sprite.setAngle(ang);
+        sprite.x = this.sheep.x + lx * cos - ly * sin;
+        sprite.y = this.sheep.y + lx * sin + ly * cos;
+        sprite.setDepth(this.sheep.y + depthOff);
+      };
+      if (this.blanket) {
+        pin(this.blanket, 0, -10, 1, { x: 0.5, y: 0.7 }, -1);
+        this.blanket.setVisible(false);
+      }
       const id = this.sheep.costumeId;
-      if (id && COSTUME_TEX[id]) {
+      if (id && COSTUME_TEX[id] && this.costume) {
         const pose = this.poseName();
         const head = HEAD[pose] || HEAD.idle;
         const n = (pose === "sleep"
@@ -432,33 +457,34 @@ function assetUrl(path) {
           : (COSTUME_NUDGE[id] || { x: 0, y: 0 }));
         const orig = COSTUME_ORIGIN[id] || { x: 0.5, y: 1 };
         const mul = COSTUME_SCALE[id] == null ? 1.08 : COSTUME_SCALE[id];
-        const flip = this.sheep.flipX ? -1 : 1;
-        this.costume.setOrigin(orig.x, orig.y);
-        this.costume.setScale(s * mul);
-        this.costume.setAngle(0);
-        this.costume.x = this.sheep.x + (head.x + n.x) * s * flip;
-        this.costume.y = this.sheep.y + (head.y + n.y) * s;
-        this.costume.setFlipX(this.sheep.flipX);
+        pin(this.costume, head.x + n.x, head.y + n.y, mul, orig, 4);
         this.costume.setVisible(true);
-        this.costume.setDepth(this.sheep.y + 4);
-      } else {
+      } else if (this.costume) {
         this.costume.setVisible(false);
       }
       const cid = this.sheep.collarId;
       if (cid === "collar" && this.collar) {
         const pose = this.poseName();
         const neck = NECK[pose] || NECK.idle;
-        const flip = this.sheep.flipX ? -1 : 1;
-        this.collar.setOrigin(0.5, 1);
-        this.collar.setScale(s);
-        this.collar.setAngle(0);
-        this.collar.x = this.sheep.x + neck.x * s * flip;
-        this.collar.y = this.sheep.y + neck.y * s;
-        this.collar.setFlipX(this.sheep.flipX);
+        pin(this.collar, neck.x, neck.y, 1, { x: 0.5, y: 1 }, 3);
         this.collar.setVisible(true);
-        this.collar.setDepth(this.sheep.y + 3);
       } else if (this.collar) {
         this.collar.setVisible(false);
+      }
+      const bf = this._perchedBf;
+      if (bf && bf.active) {
+        const pose = this.poseName();
+        const noseY = pose === "happy" ? -70 : -66;
+        const noseX = -44;
+        const flip = this.sheep.flipX ? -1 : 1;
+        const rad = (this.sheep.angle || 0) * Math.PI / 180;
+        const lx = noseX * Math.abs(this.sheep.scaleX) * flip;
+        const ly = noseY * Math.abs(this.sheep.scaleY);
+        const rx = lx * Math.cos(rad) - ly * Math.sin(rad);
+        const ry = lx * Math.sin(rad) + ly * Math.cos(rad);
+        bf.x = this.sheep.x + rx;
+        bf.y = this.sheep.y + ry;
+        bf.setDepth(this.sheep.y + 6);
       }
       this.sheep.setDepth(this.sheep.y);
     }
@@ -523,6 +549,7 @@ function assetUrl(path) {
       if ($("looks").classList.contains("hidden") === false) return;
       if ($("friend").classList.contains("hidden") === false) return;
       if ($("bath") && $("bath").classList.contains("hidden") === false) return;
+      if ($("brush") && $("brush").classList.contains("hidden") === false) return;
       const f = this.toField(pointer.worldX, pointer.worldY);
       if (brushMode) {
         if (this.overSheep(pointer)) this.sparkleAt(pointer.worldX, pointer.worldY);
@@ -656,11 +683,18 @@ function assetUrl(path) {
     }
 
     startBrush() {
-      brushMode = !brushMode;
-      document.body.classList.toggle("brush", brushMode);
-      document.querySelector('[data-act="brush"]').classList.toggle("on", brushMode);
-      toast(brushMode ? "Swipe the wool ✨" : "Brush done");
-      this._brushed = false;
+      if (busy) return;
+      busy = true;
+      openBrushMini(() => {
+        doCare("brush").catch(() => {});
+        this.heartBurst();
+        this.sparkleBurst();
+        this.showAnim("happy");
+        toast("So fluffy ☁️");
+        blip("unlock");
+        this.goIdle();
+        busy = false;
+      });
     }
 
     sparkleAt(x, y) {
@@ -854,33 +888,113 @@ function assetUrl(path) {
 
     spawnButterflies() {
       if (this.mode === "sleep") return;
+      if (!this.butterflies) this.butterflies = [];
+      this.butterflies = this.butterflies.filter((b) => b && b.active);
+      if (this.butterflies.length >= 3) return;
       const left = Math.random() < 0.5;
-      const fy = this.clampY(260 + Math.random() * 400);
+      const fy = this.clampY(240 + Math.random() * 420);
       const start = this.toWorld(left ? 150 : 870, fy);
       const end = this.toWorld(left ? 870 : 150, fy + (Math.random() - 0.5) * 80);
       const key = Math.random() < 0.5 ? "bf" : "bfb";
       const bf = this.add.sprite(start.x, start.y, key + "1").setScale(this.fScale * 1.4).setDepth(900);
       bf.play(key);
-      this.tweens.add({
-        targets: bf, x: end.x, y: end.y, duration: 7000, ease: "Sine.easeInOut",
-        onComplete: () => bf.destroy(),
+      bf._kind = key;
+      bf.setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Circle(12, 9, 16), hitAreaCallback: Phaser.Geom.Circle.Contains });
+      bf.on("pointerdown", (pointer) => {
+        if (pointer && pointer.event && pointer.event.stopPropagation) pointer.event.stopPropagation();
+        this.catchButterfly(bf);
       });
-      // hop after if idle
-      if (this.mode === "idle" && !busy && Math.random() < 0.7) {
-        const hop = this.toField(start.x + (end.x - start.x) * 0.3, start.y);
-        this.walkTo(hop.x, hop.y, () => {
-          this.showAnim("happy");
-          this.tweens.add({
-            targets: this.sheep, y: this.sheep.y - 18, yoyo: true, duration: 140, repeat: 2,
-            onUpdate: () => this.layoutWear(),
-            onComplete: () => this.goIdle(),
-          });
-        });
+      bf._tween = this.tweens.add({
+        targets: bf, x: end.x, y: end.y, duration: 8000, ease: "Sine.easeInOut",
+        onComplete: () => { if (bf.active && !bf._caught) bf.destroy(); },
+      });
+      this.butterflies.push(bf);
+      if (this.mode === "idle" && !busy && !this._catching && Math.random() < 0.55) {
+        this.time.delayedCall(500, () => this.catchButterfly(bf));
       }
+    }
+
+    catchButterfly(bf) {
+      if (!bf || !bf.active || bf._caught) return;
+      if (this.mode === "sleep") return;
+      if (busy || this._catching) return;
+      busy = true;
+      this._catching = true;
+      bf._caught = true;
+      if (bf._tween) { bf._tween.stop(); bf._tween = null; }
+      const f = this.toField(bf.x, bf.y);
+      this.walkTo(this.clamp(f.x), this.clampY(f.y + 10), () => {
+        this.showAnim("happy");
+        this.tweens.add({
+          targets: this.sheep, y: this.sheep.y - 16, yoyo: true, duration: 150, repeat: 1,
+          onComplete: () => this.landButterfly(bf),
+        });
+      });
+    }
+
+    landButterfly(bf) {
+      if (!bf || !bf.active) {
+        this._catching = false;
+        this.goIdle();
+        busy = false;
+        return;
+      }
+      const s = this.fScale;
+      const flip = this.sheep.flipX ? -1 : 1;
+      // Sit on the snout, just in front of the face — never in the mouth.
+      const nx = this.sheep.x + (-44) * s * flip;
+      const ny = this.sheep.y + (-66) * s;
+      bf.setDepth(this.sheep.y + 6);
+      this.tweens.add({
+        targets: bf, x: nx, y: ny, duration: 280, ease: "Sine.easeOut",
+        onComplete: () => {
+          this._perchedBf = bf;
+          this.showAnim("happy");
+          this.heartBurst();
+          toast("A friend! 🦋");
+          blip("heart");
+          this.time.delayedCall(1100, () => {
+            this._perchedBf = null;
+            if (!bf.active) {
+              this._catching = false;
+              this.goIdle();
+              busy = false;
+              return;
+            }
+            const awayX = this.sheep.x + 140 * s * (this.sheep.flipX ? -1 : 1);
+            const awayY = this.sheep.y - 130 * s;
+            this.tweens.add({
+              targets: bf, x: awayX, y: awayY, alpha: 0, duration: 900, ease: "Sine.easeIn",
+              onComplete: () => {
+                if (bf.active) bf.destroy();
+                this._catching = false;
+                this.goIdle();
+                busy = false;
+              },
+            });
+          });
+        },
+      });
+    }
+
+    catchNearestButterfly() {
+      const list = (this.butterflies || []).filter((b) => b && b.active && !b._caught);
+      if (!list.length) { this.spawnButterflies(); this.time.delayedCall(80, () => this.catchNearestButterfly()); return; }
+      let best = list[0], bestD = 1e9;
+      for (const b of list) {
+        const d = Math.hypot(b.x - this.sheep.x, b.y - this.sheep.y);
+        if (d < bestD) { bestD = d; best = b; }
+      }
+      this.catchButterfly(best);
     }
 
     idleMood() {
       if (this.mode !== "idle" || busy) return;
+      const live = (this.butterflies || []).filter((b) => b && b.active && !b._caught);
+      if (live.length && Math.random() < 0.4) {
+        this.catchButterfly(live[0]);
+        return;
+      }
       const pick = Math.random();
       if (pick < 0.33) {
         // yawn
@@ -932,6 +1046,44 @@ function assetUrl(path) {
         this.idleAt = this.time.now + 9000 + Math.random() * 8000;
         this.idleMood();
       }
+    }
+  }
+
+  function dressPreview(sheepImg, hatImg, collarImg) {
+    if (!sheepImg) return;
+    const happy = /sheep_happy/.test(sheepImg.getAttribute("src") || sheepImg.src || "");
+    const boxH = sheepImg.getBoundingClientRect().height || sheepImg.clientHeight || 150;
+    const artH = happy ? 139 : 121;
+    const scale = boxH / artH;
+    const pet = state && state.pet;
+    const head = happy ? (HEAD.happy || HEAD.idle) : HEAD.idle;
+    const neck = happy ? (NECK.happy || NECK.idle) : NECK.idle;
+    function place(img, ox, oy, mul, src, size) {
+      if (!img) return;
+      if (!src) { img.classList.add("hidden"); img.removeAttribute("src"); return; }
+      img.src = src;
+      img.classList.remove("hidden");
+      const hpx = (size && size[1] ? size[1] : 36) * scale * mul;
+      img.style.height = hpx + "px";
+      img.style.width = "auto";
+      // +6px sit: HTML box sits the brim a hair high vs the Phaser crop.
+      img.style.bottom = ((-oy * scale) - 6) + "px";
+      img.style.left = "50%";
+      img.style.transform = "translateX(calc(-50% + " + (ox * scale) + "px))";
+    }
+    if (pet && pet.costume && COSTUME_TEX[pet.costume] && hatImg) {
+      const n = COSTUME_NUDGE[pet.costume] || { x: 0, y: 0 };
+      const mul = COSTUME_SCALE[pet.costume] == null ? 1.08 : COSTUME_SCALE[pet.costume];
+      place(hatImg, head.x + n.x, head.y + n.y, mul,
+        assetUrl("assets/" + COSTUME_TEX[pet.costume] + ".png"), COSTUME_SIZE[pet.costume]);
+    } else if (hatImg) {
+      place(hatImg, 0, 0, 1, null);
+    }
+    if (pet && pet.collar === "collar" && collarImg) {
+      place(collarImg, neck.x, neck.y, 1,
+        assetUrl("assets/costume_collar.png"), COSTUME_SIZE.collar);
+    } else if (collarImg) {
+      place(collarImg, 0, 0, 1, null);
     }
   }
 
@@ -1061,8 +1213,13 @@ function assetUrl(path) {
       show(btnDry, false);
       setHint("All done ✨");
       if (sheepImg) {
-        sheepImg.classList.add("shake");
-        setTimeout(() => sheepImg.classList.remove("shake"), 700);
+        sheepImg.src = assetUrl("assets/sheep_happy.png");
+        dressPreview(sheepImg, $("bathHat"), $("bathCollar"));
+      }
+      if (wrap) {
+        const actor = $("bathActor") || wrap;
+        actor.classList.add("shake");
+        setTimeout(() => actor.classList.remove("shake"), 700);
       }
       wrap.classList.add("sparkle");
       blip("unlock");
@@ -1076,10 +1233,17 @@ function assetUrl(path) {
     setHint("Scrub the wool 🧼");
     show(btnRinse, false);
     show(btnDry, false);
-    if (sheepImg) sheepImg.classList.remove("shake");
+    if (sheepImg) {
+      sheepImg.src = assetUrl("assets/sheep_idle.png");
+      sheepImg.classList.remove("shake");
+    }
+    const actor = $("bathActor");
+    if (actor) actor.classList.remove("shake");
     wrap.classList.remove("sparkle");
     root.classList.remove("hidden");
     document.body.classList.add("bathing");
+    dressPreview(sheepImg, $("bathHat"), $("bathCollar"));
+    requestAnimationFrame(() => dressPreview(sheepImg, $("bathHat"), $("bathCollar")));
     sizeCanvas();
     draw();
     wrap.addEventListener("pointerdown", onPtr);
@@ -1095,6 +1259,185 @@ function assetUrl(path) {
         if (clean >= 60) { show(btnRinse, true); setHint("Nice! Now rinse"); }
       }
     }, 700);
+  }
+
+  function openBrushMini(onDone) {
+    const root = $("brush");
+    const canvas = $("brushCanvas");
+    const meterFill = $("fluffFill");
+    const meterLabel = $("fluffLabel");
+    const wrap = $("brushWrap");
+    const sheepImg = $("brushSheep");
+    const actor = $("brushActor") || wrap;
+    const spotsEl = $("brushSpots");
+    const hint = $("brushHint");
+    if (!root || !canvas || !wrap) { if (onDone) onDone(); return; }
+
+    const W = 280, H = 260;
+    let fluff = 0;
+    let done = false;
+    let helpTimer = 0;
+    const N = 6;
+    const kinds = ["burr", "dust", "burr", "dust", "burr", "dust"];
+
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, W, H);
+
+    function setMeter() {
+      if (meterFill) meterFill.style.width = fluff + "%";
+      if (meterLabel) meterLabel.textContent = "☁️ Fluffy " + fluff + "%";
+    }
+    function setHint(msg) { if (hint) hint.textContent = msg; }
+    function puffAt(x, y) {
+      const el = document.createElement("div");
+      el.className = "wool-puff";
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+      wrap.appendChild(el);
+      setTimeout(() => el.remove(), 700);
+    }
+    function sparkleAt(x, y) {
+      const el = document.createElement("div");
+      el.className = "spot-sparkle";
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+      wrap.appendChild(el);
+      setTimeout(() => el.remove(), 600);
+    }
+    function finish() {
+      if (done) return;
+      done = true;
+      clearInterval(helpTimer);
+      fluff = 100;
+      setMeter();
+      setHint("So fluffy!");
+      if (sheepImg) sheepImg.src = assetUrl("assets/sheep_happy.png");
+      dressPreview(sheepImg, $("brushHat"), $("brushCollar"));
+      if (actor) {
+        actor.classList.add("shake");
+        setTimeout(() => actor.classList.remove("shake"), 700);
+      }
+      wrap.classList.add("sparkle");
+      if (actor) actor.classList.add("fluffy");
+      const r = wrap.getBoundingClientRect();
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+          puffAt(r.width * (0.3 + Math.random() * 0.4), r.height * (0.25 + Math.random() * 0.4));
+        }, i * 90);
+      }
+      for (let i = 0; i < 6; i++) {
+        setTimeout(() => {
+          const h = document.createElement("div");
+          h.className = "brush-heart";
+          h.textContent = "❤️";
+          h.style.left = (r.width * (0.25 + Math.random() * 0.5)) + "px";
+          h.style.top = (r.height * (0.2 + Math.random() * 0.35)) + "px";
+          wrap.appendChild(h);
+          setTimeout(() => h.remove(), 900);
+        }, i * 80);
+      }
+      setTimeout(() => {
+        wrap.classList.remove("sparkle");
+        root.classList.add("hidden");
+        document.body.classList.remove("bathing", "brushing");
+        if (onDone) onDone();
+      }, 900);
+    }
+
+    // Spots sit on the wool body (right/back), never on the face or hat.
+    const layout = [
+      { x: 0.62, y: 0.40 },
+      { x: 0.90, y: 0.42 },
+      { x: 0.74, y: 0.54 },
+      { x: 0.52, y: 0.66 },
+      { x: 0.80, y: 0.76 },
+      { x: 0.96, y: 0.62 },
+    ];
+    if (spotsEl) spotsEl.innerHTML = "";
+    const host = actor || spotsEl;
+    const spots = layout.slice(0, N).map((pt, i) => {
+      const el = document.createElement("img");
+      el.className = "brush-spot";
+      el.src = assetUrl("assets/" + kinds[i] + ".png");
+      el.alt = kinds[i] === "burr" ? "burr" : "dust";
+      el.draggable = false;
+      el.style.left = (pt.x * 100) + "%";
+      el.style.top = (pt.y * 100) + "%";
+      if (host) host.appendChild(el);
+      else if (spotsEl) spotsEl.appendChild(el);
+      return { el, gone: false, x: pt.x, y: pt.y };
+    });
+
+    function clearSpot(s) {
+      if (!s || s.gone) return;
+      s.gone = true;
+      const wr = wrap.getBoundingClientRect();
+      const b = s.el.getBoundingClientRect();
+      const x = (b.left + b.width / 2) - wr.left;
+      const y = (b.top + b.height / 2) - wr.top;
+      s.el.classList.add("gone");
+      setTimeout(() => s.el.remove(), 280);
+      sparkleAt(x, y);
+      puffAt(x, y);
+      fluff = Math.min(100, fluff + Math.ceil(100 / N));
+      setMeter();
+      blip("sparkle");
+      if (spots.every((sp) => sp.gone)) finish();
+      else setHint("Keep brushing");
+    }
+
+    function hit(clientX, clientY) {
+      const r = 26;
+      for (const s of spots) {
+        if (s.gone) continue;
+        const b = s.el.getBoundingClientRect();
+        const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+        if (Math.hypot(clientX - cx, clientY - cy) < r) clearSpot(s);
+      }
+    }
+
+    let lastTouch = Date.now();
+    function pointer(e) {
+      const ev = (e.touches && e.touches[0]) || e;
+      if (!ev) return;
+      lastTouch = Date.now();
+      hit(ev.clientX, ev.clientY);
+    }
+    wrap.onpointerdown = (e) => { e.preventDefault(); pointer(e); };
+    wrap.onpointermove = (e) => { if (e.buttons || e.pressure) pointer(e); };
+    wrap.ontouchstart = (e) => { e.preventDefault(); pointer(e); };
+    wrap.ontouchmove = (e) => { e.preventDefault(); pointer(e); };
+
+    try {
+      const cur = assetUrl("assets/brush_cursor.png");
+      wrap.style.cursor = 'url("' + cur + '") 30 26, pointer';
+    } catch (err) {}
+
+    fluff = 0;
+    setMeter();
+    setHint("Brush the burrs");
+    if (sheepImg) {
+      sheepImg.src = assetUrl("assets/sheep_idle.png");
+      sheepImg.classList.remove("shake");
+    }
+    if (actor) actor.classList.remove("shake", "fluffy");
+    wrap.classList.remove("sparkle");
+    root.classList.remove("hidden");
+    document.body.classList.add("bathing", "brushing");
+    dressPreview(sheepImg, $("brushHat"), $("brushCollar"));
+    requestAnimationFrame(() => dressPreview(sheepImg, $("brushHat"), $("brushCollar")));
+
+    let helpI = 0;
+    helpTimer = setInterval(() => {
+      if (done) return;
+      if (Date.now() - lastTouch < 2800) return;
+      const left = spots.filter((s) => !s.gone);
+      if (!left.length) { finish(); return; }
+      helpI++;
+      if (helpI % 2 === 0) clearSpot(left[0]);
+    }, 900);
   }
 
   async function openLooks() {
@@ -1167,6 +1510,9 @@ function assetUrl(path) {
       game, get pasture() { return pasture; }, get state() { return state; },
       toast, doCare, renderHud, addHearts: addTestHearts,
       openBath: openBathMini,
+      openBrush: openBrushMini,
+      catchButterfly: () => pasture && pasture.catchNearestButterfly && pasture.catchNearestButterfly(),
+      spawnButterflies: () => pasture && pasture.spawnButterflies && pasture.spawnButterflies(),
       setBusy: (v) => { busy = !!v; },
       get busy() { return busy; },
       setPose: (key) => {
