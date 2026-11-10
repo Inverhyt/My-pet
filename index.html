@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="My Pet">
+  <base href="./">
+  <meta name="theme-color" content="#f4efe4">
+  <title>My Pet</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <div id="game"></div>
+
+    <div id="hud" class="hidden">
+      <header class="topbar">
+        <div class="who">
+          <div class="pet-name" id="petName">My Pet</div>
+          <div class="mood">😊 Happy</div>
+        </div>
+        <div class="stats">
+          <span id="hearts" title="Friendship">💗 0</span>
+          <span id="coinMark" title="Today's coin">🪙</span>
+          <button type="button" id="testBtn" class="test-btn hidden" title="Add 10 hearts">🧪 Test</button>
+        </div>
+      </header>
+      <div id="toast"></div>
+      <div id="bubble" class="hidden"></div>
+      <nav class="toolbar" id="toolbar">
+        <button data-act="brush" type="button"><span class="e">🪥</span><span class="w">Brush</span></button>
+        <button data-act="bath" type="button"><span class="e">🛁</span><span class="w">Bath</span></button>
+        <button data-act="play" type="button"><span class="e">🎾</span><span class="w">Play</span></button>
+        <button data-act="treat" type="button"><span class="e">🍪</span><span class="w">Treat</span></button>
+        <button data-act="photo" type="button"><span class="e">📷</span><span class="w">Photo</span></button>
+        <button data-act="looks" type="button"><span class="e">👕</span><span class="w">Looks</span></button>
+        <button data-act="friend" type="button"><span class="e">👋</span><span class="w">Friend</span></button>
+      </nav>
+    </div>
+
+    <div id="adopt" class="overlay hidden">
+      <div class="card">
+        <h1>My Pet</h1>
+        <p class="lead">Pick a friend. Give them a name.</p>
+        <div class="picks">
+          <button type="button" class="pick selected" id="pickPet" data-id="sheep_valais">
+            <img src="assets/sheep_idle.png" alt="Valais sheep">
+            <span>🐑 Valais sheep</span>
+          </button>
+          <button type="button" class="pick selected" id="pickPlace" data-id="field">
+            <img src="assets/field_thumb.png" alt="Pasture">
+            <span>🌿 Pasture</span>
+          </button>
+        </div>
+        <label class="name-label" for="nameInput">Name</label>
+        <input id="nameInput" type="text" maxlength="24" placeholder="Biscuit" autocomplete="off" spellcheck="false">
+        <button type="button" class="big" id="adoptBtn">💗 Adopt</button>
+      </div>
+    </div>
+
+    <div id="looks" class="overlay hidden">
+      <div class="card">
+        <h2>Looks</h2>
+        <p class="lead">Care for your pet to unlock these.</p>
+        <div class="looks-grid" id="looksGrid"></div>
+        <button type="button" class="big ghost" id="looksClose">Close</button>
+      </div>
+    </div>
+
+    <div id="friend" class="overlay hidden">
+      <div class="card">
+        <h2>👋 Friend visits</h2>
+        <p class="lead">Soon you can peek at a friend's pet and leave a 💗.</p>
+        <p class="soon">Coming in a later update.</p>
+        <button type="button" class="big ghost" id="friendClose">Close</button>
+      </div>
+    </div>
+
+    <div id="boot">
+      <div class="boot-card">
+        <div class="boot-sheep">🐑</div>
+        <div>My Pet</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.ASSET_BASE = (function () {
+      var p = location.pathname || "/";
+      if (p.indexOf(".html") !== -1) p = p.replace(/[^/]+$/, "");
+      if (p.charAt(p.length - 1) !== "/") p += "/";
+      return p;
+    })();
+    window.MYPET_TEST_MODE = true;
+  </script>
+  <script src="vendor/phaser.min.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
