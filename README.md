@@ -4,14 +4,13 @@ A cozy one-sheep pasture you can open on your phone. This is a **test build**. Y
 
 ## Play on your phone
 
-When GitHub Pages is on, the game will be at:
-
-**https://inverhyt.github.io/my-pet/**
+Open: **https://inverhyt.github.io/My-pet/**
 
 1. Adopt your sheep and give it a name.
 2. Tap the trough, water, hay nest, flowers, or the sheep.
-3. Use Brush, Bath, Play, Treat, Photo, and Looks.
-4. Tap **🧪 Test** (top right) to add **10 hearts**. The flower crown unlocks at 8, the bow at 16, and the little hat at 28.
+3. Tap the hay bale, slide, or tunnel — or use **Play**.
+4. **Bath** is a little game: scrub, rinse, then dry.
+5. Tap **🧪 Test** (top right) to add **10 hearts**. The flower crown unlocks at 8, the bow at 16, and the little hat at 28.
 
 Add it to your Home Screen from Safari or Chrome if you like.
 
