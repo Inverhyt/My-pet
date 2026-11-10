@@ -1,0 +1,185 @@
+:root {
+  --cream: #f4efe4;
+  --ink: #4a3426;
+  --brown: #8a5a3a;
+  --pink: #e8899a;
+  --grass: #b5d07a;
+  --card: #fffaf3;
+  --line: #c9a48a;
+  --shadow: rgba(74, 52, 38, 0.18);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: Nunito, "Segoe UI", sans-serif;
+  font-weight: 600;
+  overflow: hidden;
+  user-select: none;
+}
+#app, #game { position: absolute; inset: 0; }
+#game canvas { display: block; }
+#hud { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+#hud .toolbar, #hud #toast, #hud #bubble { pointer-events: auto; }
+
+
+.hidden { display: none !important; }
+
+.topbar {
+  position: absolute; left: 0; right: 0; top: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px 8px;
+  background: linear-gradient(to bottom, rgba(244,239,228,0.96), rgba(244,239,228,0.0));
+  pointer-events: none;
+  z-index: 5;
+}
+.who .pet-name { font-weight: 800; font-size: 1.35rem; letter-spacing: 0.02em; }
+.who .mood { font-size: 0.95rem; opacity: 0.85; }
+.stats { display: flex; gap: 8px; align-items: center; font-size: 1.15rem; font-weight: 800; pointer-events: none; }
+.stats .test-btn { pointer-events: auto; }
+.stats span { background: var(--card); border: 2px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+
+.toolbar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: space-around; gap: 4px;
+  padding: 8px 6px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(244,239,228,0.95);
+  border-top: 3px solid var(--line);
+  z-index: 6;
+}
+.toolbar button {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  padding: 6px 2px 5px;
+  color: var(--ink);
+  font: inherit; font-weight: 800; font-size: 0.72rem;
+  cursor: pointer;
+  box-shadow: 0 2px 0 var(--line);
+}
+.toolbar button:active { transform: translateY(2px); box-shadow: none; }
+.toolbar button.on { background: #fde4c8; border-color: var(--brown); }
+.toolbar .e { font-size: 1.35rem; line-height: 1; }
+.toolbar .w { letter-spacing: 0.02em; }
+
+#toast {
+  position: absolute; left: 50%; top: 64px; transform: translateX(-50%);
+  z-index: 8; pointer-events: none;
+  min-width: 0; max-width: 86%;
+  text-align: center; font-weight: 800; font-size: 1.15rem;
+  background: var(--card); color: var(--ink);
+  border: 3px solid var(--brown); border-radius: 16px;
+  padding: 8px 16px;
+  box-shadow: 0 6px 0 var(--shadow);
+  opacity: 0; transition: opacity 0.25s;
+}
+#toast.show { opacity: 1; }
+
+#bubble {
+  position: absolute; z-index: 7; pointer-events: none;
+  background: #fff; border: 2px solid var(--ink); border-radius: 16px;
+  padding: 4px 10px; font-size: 1.1rem; font-weight: 800;
+}
+
+.overlay {
+  position: absolute; inset: 0;
+  background: rgba(74, 52, 38, 0.28);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 20; padding: 18px;
+  overflow: auto;
+}
+.card {
+  background: var(--card);
+  border: 3px solid var(--brown);
+  border-radius: 24px;
+  padding: 22px 20px 18px;
+  width: min(420px, 100%);
+  box-shadow: 0 10px 0 var(--shadow);
+  text-align: center;
+}
+.card h1, .card h2 { margin: 0 0 6px; font-weight: 800; font-size: 2rem; }
+.card h2 { font-size: 1.6rem; }
+.lead { margin: 0 0 16px; font-size: 1.05rem; }
+.soon { color: var(--brown); font-weight: 800; }
+.picks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.pick {
+  background: #fff; border: 3px solid var(--line); border-radius: 16px;
+  padding: 8px; font: inherit; font-weight: 800; color: var(--ink); cursor: pointer;
+}
+.pick img { width: 100%; height: 110px; object-fit: contain; image-rendering: pixelated; display: block; }
+.pick.selected { border-color: var(--pink); box-shadow: 0 0 0 3px #f7c9d2; }
+.name-label { display: block; text-align: left; font-weight: 800; margin: 4px 0; }
+#nameInput {
+  width: 100%; font: inherit; font-size: 1.3rem; font-weight: 800;
+  padding: 10px 12px; border-radius: 12px;
+  border: 3px solid var(--line); color: var(--ink); background: #fff;
+  margin-bottom: 14px;
+}
+.big {
+  width: 100%; font: inherit; font-size: 1.25rem; font-weight: 800;
+  padding: 12px; border-radius: 16px; border: 3px solid var(--brown);
+  background: #f3b3be; color: var(--ink); cursor: pointer;
+  box-shadow: 0 3px 0 var(--brown);
+}
+.big:active { transform: translateY(2px); box-shadow: none; }
+.big.ghost { background: #fff; margin-top: 12px; }
+
+.looks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.look {
+  background: #fff; border: 3px solid var(--line); border-radius: 16px;
+  padding: 8px; cursor: pointer; font: inherit; font-weight: 800; color: var(--ink);
+}
+.look img { width: 100%; height: 90px; object-fit: contain; image-rendering: pixelated; }
+.look.locked { opacity: 0.45; cursor: default; filter: grayscale(0.6); }
+.look.equipped { border-color: var(--pink); box-shadow: 0 0 0 3px #f7c9d2; }
+.look .need { display: block; font-size: 0.85rem; margin-top: 2px; }
+
+#boot {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--cream);
+}
+.boot-card { text-align: center; font-size: 1.8rem; font-weight: 800; }
+.boot-sheep { font-size: 4rem; animation: bob 1.2s ease-in-out infinite; }
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+body.brush { cursor: url("/assets/sparkle.png") 8 8, crosshair; }
+
+html, body, #app, #game {
+  height: 100%;
+  height: 100dvh;
+  overscroll-behavior: none;
+}
+#game canvas { touch-action: none; }
+
+.test-btn {
+  pointer-events: auto;
+  background: #fffaf3;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: inherit;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--ink);
+  cursor: pointer;
+  margin-left: 6px;
+}
+.test-btn:active { transform: translateY(1px); }
+
+@media (max-width: 500px) {
+  .who .pet-name { font-size: 1.2rem; }
+  .toolbar { padding: 10px 6px calc(14px + env(safe-area-inset-bottom)); gap: 6px; }
+  .toolbar button { min-height: 64px; border-radius: 16px; padding: 8px 2px 6px; }
+  .toolbar .e { font-size: 1.6rem; }
+  .toolbar .w { font-size: 0.8rem; }
+  .big { min-height: 52px; font-size: 1.3rem; }
+  #nameInput { font-size: 1.25rem; min-height: 48px; }
+  .stats span { font-size: 1rem; }
+}
