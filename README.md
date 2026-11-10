@@ -10,7 +10,7 @@ Open: **https://inverhyt.github.io/My-pet/**
 2. Tap the trough, water, hay nest, flowers, or the sheep.
 3. Tap the hay bale, slide, or tunnel — or use **Play**.
 4. **Bath** is a little game: scrub, rinse, then dry.
-5. Tap **🧪 Test** (top right) to add **10 hearts**. The flower crown unlocks at 8, the bow at 16, and the little hat at 28.
+5. Tap **🧪 Test** (top right) to add **10 hearts**. The flower crown unlocks at 8, the bell collar at 12, the bow at 16, the little hat at 28, and the witch hat at 40. The bell can be worn with a hat.
 
 Add it to your Home Screen from Safari or Chrome if you like.
 
