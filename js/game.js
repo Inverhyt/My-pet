@@ -2,7 +2,7 @@
 function assetUrl(path) {
   path = String(path || "").replace(/^\/+/, "");
   const base = (typeof window.ASSET_BASE === "string") ? window.ASSET_BASE + path : path;
-  const v = window.MYPET_ASSET_V || "2";
+  const v = window.MYPET_ASSET_V || "6";
   return base + (base.indexOf("?") >= 0 ? "&" : "?") + "v=" + v;
 }
 
@@ -24,21 +24,61 @@ function assetUrl(path) {
     { x: 400, y: 280 }, { x: 560, y: 260 }, { x: 640, y: 520 },
   ];
   const WALK = { x0: 175, y0: 210, x1: 850, y1: 820 };
-  const COSTUME_TEX = { crown: "costume_crown", bow: "costume_bow", hat: "costume_hat" };
-  // Head tuft is left of sprite center (peak ~x 47 of 133). Offsets from feet (origin 0.5,1).
+  const COSTUME_TEX = { crown: "costume_crown", bow: "costume_bow", hat: "costume_hat", witch: "costume_witch" };
+  // Per-frame head anchors, from feet (origin 0.5,1). Sit low on the forehead,
+  // not on the wool peak. walk1–4 share idle's body; only hooves move.
   const HEAD = {
-    idle:  { x: -20, y: -108 },
-    walk:  { x: -20, y: -108 },
-    eat:   { x: -22, y: -98 },
-    drink: { x: -20, y: -96 },
-    happy: { x: -20, y: -120 },
-    sleep: { x: -22, y: -112 },
+    idle:  { x: -16, y: -92 },
+    walk:  { x: -16, y: -92 },
+    walk1: { x: -16, y: -92 },
+    walk2: { x: -16, y: -92 },
+    walk3: { x: -16, y: -92 },
+    walk4: { x: -16, y: -92 },
+    eat:   { x: -16, y: -84 },
+    drink: { x: -14, y: -82 },
+    happy: { x: -16, y: -110 },
+    sleep: { x: -20, y: -80 },
   };
   const COSTUME_NUDGE = {
     crown: { x: 0, y: 0 },
-    bow:   { x: 16, y: 10 },
-    hat:   { x: 0, y: 6 },
+    bow:   { x: 24, y: 0 },
+    hat:   { x: 0, y: 4 },
+    witch: { x: 0, y: 4 },
   };
+  const COSTUME_ORIGIN = {
+    crown: { x: 0.5, y: 1 },
+    bow:   { x: 0.5, y: 1 },
+    hat:   { x: 0.5, y: 1 },
+    witch: { x: 0.5, y: 1 },
+  };
+  const COSTUME_SCALE = { crown: 1.08, bow: 1.08, hat: 1.08, witch: 1.08 };
+  // Sleep uses the shared HEAD.sleep sit (centered on the face, snug on the
+  // bangs). Do not reuse standing-pose ear/brim nudges, or hats drift right
+  // and float on the wool. Crown has 8px of empty padding under the flowers.
+  const COSTUME_NUDGE_SLEEP = {
+    crown: { x: 0, y: 8 },
+    bow:   { x: 0, y: 0 },
+    hat:   { x: 0, y: 0 },
+    witch: { x: 0, y: 0 },
+  };
+  // Neck anchors, from feet (origin 0.5,1). Band sits on chest wool under the chin.
+  const NECK = {
+    idle:  { x: -16, y: -28 },
+    walk:  { x: -16, y: -28 },
+    walk1: { x: -16, y: -28 },
+    walk2: { x: -16, y: -28 },
+    walk3: { x: -16, y: -28 },
+    walk4: { x: -16, y: -28 },
+    eat:   { x: -16, y: -20 },
+    drink: { x: -14, y: -18 },
+    happy: { x: -16, y: -37 },
+    sleep: { x: -20, y: -35 },
+  };
+  const EXTRA_UNLOCKS = [
+    { id: "collar", at: 12, name: "Bell", emoji: "🔔" },
+    { id: "witch", at: 40, name: "Witch hat", emoji: "🧙" },
+  ];
+  const STATIC_SAVE = "mypet-static-v1";
   // Tappable park toys, in field pixels.
   const PARK = {
     hay:    { x: 380, y: 655, r: 70, kind: "hop",    standL: { x: 295, y: 655 }, standR: { x: 475, y: 655 }, label: "hay" },
@@ -81,6 +121,64 @@ function assetUrl(path) {
     } catch (e) {}
   }
 
+  function persistStaticPet() {
+    if (!state || !state.pet) return;
+    // Persist into the static test save so MyPetApi.equip and the collar
+    // slot stay in sync even though static-pages/js/api.js is not edited.
+    try {
+      const raw = localStorage.getItem(STATIC_SAVE);
+      const data = raw ? JSON.parse(raw) : { pet: state.pet, coins: state.coins || 0 };
+      if (!data.pet) data.pet = state.pet;
+      const u = Array.isArray(state.pet.unlocked) ? state.pet.unlocked.slice() : [];
+      data.pet.unlocked = u;
+      if (typeof state.pet.friendship === "number") data.pet.friendship = state.pet.friendship;
+      if (state.pet.costume !== undefined) data.pet.costume = state.pet.costume;
+      data.pet.collar = state.pet.collar || null;
+      if (typeof state.coins === "number") data.coins = state.coins;
+      localStorage.setItem(STATIC_SAVE, JSON.stringify(data));
+    } catch (e) {}
+  }
+
+  function grantStaticUnlocks() {
+    if (!state || !state.pet) return [];
+    const unlocked = Array.isArray(state.pet.unlocked) ? state.pet.unlocked.slice() : [];
+    const newly = [];
+    for (const u of EXTRA_UNLOCKS) {
+      if ((state.pet.friendship || 0) >= u.at && !unlocked.includes(u.id)) {
+        unlocked.push(u.id);
+        newly.push(u);
+      }
+    }
+    if (newly.length) {
+      state.pet.unlocked = unlocked;
+      persistStaticPet();
+    }
+    return newly;
+  }
+
+  function noteUnlocks(res, extraGranted) {
+    extraGranted = extraGranted || [];
+    const seen = {};
+    const list = [];
+    if (res && res.new_unlocks) {
+      for (const u of res.new_unlocks) {
+        if (u && u.id && !seen[u.id]) { seen[u.id] = true; list.push(u); }
+      }
+    }
+    for (const u of extraGranted) {
+      if (u && u.id && !seen[u.id]) { seen[u.id] = true; list.push(u); }
+    }
+    if (!list.length) return;
+    list.forEach((u, i) => {
+      const show = () => {
+        toast("New look! " + u.emoji + " " + u.name, 3000);
+        blip("unlock");
+      };
+      if (i === 0) show();
+      else setTimeout(show, 2000 * i);
+    });
+  }
+
   function renderHud() {
     if (!state || !state.pet) return;
     $("petName").textContent = state.pet.name;
@@ -95,14 +193,40 @@ function assetUrl(path) {
     const res = await MyPetApi.addHearts(n);
     state.pet = res.pet || state.pet;
     state.coin_today = res.coin_today || state.coin_today;
+    const grantedExtra = grantStaticUnlocks();
     renderHud();
     if (res.new_unlocks && res.new_unlocks.length) {
-      const u = res.new_unlocks[0];
-      toast("New look! " + u.emoji + " " + u.name, 3000);
+      noteUnlocks(res, grantedExtra);
+    } else if (grantedExtra.length) {
+      noteUnlocks(res, grantedExtra);
     } else {
       toast("+" + n + " 💗");
+      blip("unlock");
     }
-    blip("unlock");
+  }
+
+  async function setCollar(on) {
+    if (!state || !state.pet) return;
+    grantStaticUnlocks();
+    if (on && !(state.pet.unlocked || []).includes("collar")) {
+      toast("Need 💗 12");
+      return;
+    }
+    state.pet.collar = on ? "collar" : null;
+    persistStaticPet();
+    if (typeof MyPetApi.equipCollar === "function") {
+      try {
+        const res = await MyPetApi.equipCollar(state.pet.collar);
+        if (res && res.pet) {
+          const kept = state.pet.collar;
+          state.pet = res.pet;
+          if (!state.pet.collar) state.pet.collar = kept;
+        }
+      } catch (e) {}
+    }
+    if (pasture) pasture.wearCollar(state.pet.collar);
+    renderHud();
+    renderLooks();
   }
 
   function renderLooks() {
@@ -111,23 +235,38 @@ function assetUrl(path) {
     const pet = state && state.pet;
     const unlocked = (pet && pet.unlocked) || [];
     const items = [
-      { id: null, name: "No look", emoji: "✨", img: assetUrl("assets/sheep_idle.png"), at: 0 },
-      { id: "crown", name: "Flower crown", emoji: "🌸", img: assetUrl("assets/look_crown.png"), at: 8 },
-      { id: "bow", name: "Bow", emoji: "🎀", img: assetUrl("assets/look_bow.png"), at: 16 },
-      { id: "hat", name: "Little hat", emoji: "🎩", img: assetUrl("assets/look_hat.png"), at: 28 },
+      { id: null, name: "No look", emoji: "✨", img: assetUrl("assets/sheep_idle.png"), at: 0, slot: "costume" },
+      { id: "crown", name: "Flower crown", emoji: "🌸", img: assetUrl("assets/look_crown.png"), at: 8, slot: "costume" },
+      { id: "collar", name: "Bell", emoji: "🔔", img: assetUrl("assets/look_collar.png"), at: 12, slot: "collar" },
+      { id: "bow", name: "Bow", emoji: "🎀", img: assetUrl("assets/look_bow.png"), at: 16, slot: "costume" },
+      { id: "hat", name: "Little hat", emoji: "🎩", img: assetUrl("assets/look_hat.png"), at: 28, slot: "costume" },
+      { id: "witch", name: "Witch hat", emoji: "🧙", img: assetUrl("assets/look_witch.png"), at: 40, slot: "costume" },
     ];
     for (const it of items) {
       const have = it.id === null || unlocked.includes(it.id);
+      const equipped = it.slot === "collar"
+        ? !!(pet && pet.collar === "collar")
+        : !!(pet && pet.costume === it.id);
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "look" + (have ? "" : " locked") + (pet && pet.costume === it.id ? " equipped" : "");
+      btn.className = "look" + (have ? "" : " locked") + (equipped ? " equipped" : "");
       btn.innerHTML = `<img src="${it.img}" alt="">
         <span>${it.emoji} ${it.name}</span>
         <span class="need">${have ? (it.id === null ? "Always" : "Unlocked") : "💗 " + it.at}</span>`;
       if (have) {
         btn.addEventListener("click", async () => {
+          if (it.slot === "collar") {
+            const on = !(state.pet && state.pet.collar === "collar");
+            await setCollar(on);
+            toast(on ? "Cute! 🔔" : "Bell off");
+            blip("click");
+            return;
+          }
           const res = await MyPetApi.equip(it.id);
           state.pet = res.pet;
+          // Keep the collar slot; static api.js only knows about costume.
+          if (pet && pet.collar) state.pet.collar = pet.collar;
+          persistStaticPet();
           renderHud(); renderLooks();
           if (pasture) pasture.wear(state.pet.costume);
           toast(it.id ? "Cute! " + it.emoji : "Look cleared");
@@ -143,14 +282,14 @@ function assetUrl(path) {
     state.pet = res.pet;
     state.coins = res.coins;
     state.coin_today = res.pet.coin_day === res.day_key;
+    const grantedExtra = grantStaticUnlocks();
     renderHud();
     if (res.coin_awarded) {
       toast("+1 coin 🪙");
       blip("coin");
     }
-    if (res.new_unlocks && res.new_unlocks.length) {
-      const u = res.new_unlocks[0];
-      setTimeout(() => { toast("New look! " + u.emoji + " " + u.name, 3000); blip("unlock"); }, res.coin_awarded ? 1600 : 200);
+    if ((res.new_unlocks && res.new_unlocks.length) || grantedExtra.length) {
+      setTimeout(() => noteUnlocks(res, grantedExtra), res.coin_awarded ? 1600 : 200);
     }
     if (after) after(res);
     return res;
@@ -176,6 +315,8 @@ function assetUrl(path) {
       img("costume_crown", "costume_crown.png");
       img("costume_bow", "costume_bow.png");
       img("costume_hat", "costume_hat.png");
+      img("costume_witch", "costume_witch.png");
+      img("costume_collar", "costume_collar.png");
       img("ball", "ball.png");
       img("yarn", "yarn.png");
       img("treat", "treat.png");
@@ -217,6 +358,7 @@ function assetUrl(path) {
       this.sheep.playX = 0.5;
       this.blanket = this.add.image(0, 0, "blanket").setOrigin(0.5, 0.7).setScale(scale).setVisible(false);
       this.costume = this.add.image(0, 0, "costume_crown").setOrigin(0.5, 1).setScale(scale * 1.08).setVisible(false);
+      this.collar = this.add.image(0, 0, "costume_collar").setOrigin(0.5, 1).setScale(scale).setVisible(false);
 
       const start = this.toWorld(512, 560);
       this.place(start.x, start.y);
@@ -226,6 +368,7 @@ function assetUrl(path) {
       this.idleAt = this.time.now + 8000;
       this.facing = 1;
       this.wear(state.pet && state.pet.costume);
+      this.wearCollar(state.pet && state.pet.collar);
       this.placePark();
 
       this.field.on("pointerdown", (p) => this.onTap(p));
@@ -261,15 +404,21 @@ function assetUrl(path) {
 
     poseName() {
       if (this.mode === "sleep") return "sleep";
-      if (this.mode === "walk" || (this.sheep.anims && this.sheep.anims.isPlaying && this.sheep.anims.currentAnim && this.sheep.anims.currentAnim.key === "walk")) return "walk";
-      const key = this.sheep.texture && this.sheep.texture.key;
-      if (HEAD[key]) return key;
-      if (key && String(key).indexOf("walk") === 0) return "walk";
+      const tex = this.sheep.texture && this.sheep.texture.key;
+      const frame = this.sheep.anims && this.sheep.anims.currentFrame;
+      const frameKey = frame && (frame.textureKey || (frame.frame && frame.frame.textureKey));
+      if (frameKey && HEAD[frameKey]) return frameKey;
+      if (tex && HEAD[tex]) return tex;
+      if (this.mode === "walk" || (this.sheep.anims && this.sheep.anims.isPlaying && this.sheep.anims.currentAnim && this.sheep.anims.currentAnim.key === "walk")) {
+        return "walk";
+      }
+      if (tex && String(tex).indexOf("walk") === 0) return "walk";
       return "idle";
     }
 
     layoutWear() {
       const s = this.fScale;
+      if (this.mode === "sleep" && this.sheep) this.sheep.angle = 0;
       this.blanket.x = this.sheep.x;
       this.blanket.y = this.sheep.y - 10 * s;
       this.blanket.setDepth(this.sheep.y - 1);
@@ -278,8 +427,15 @@ function assetUrl(path) {
       if (id && COSTUME_TEX[id]) {
         const pose = this.poseName();
         const head = HEAD[pose] || HEAD.idle;
-        const n = COSTUME_NUDGE[id] || { x: 0, y: 0 };
+        const n = (pose === "sleep"
+          ? (COSTUME_NUDGE_SLEEP[id] || { x: 0, y: 0 })
+          : (COSTUME_NUDGE[id] || { x: 0, y: 0 }));
+        const orig = COSTUME_ORIGIN[id] || { x: 0.5, y: 1 };
+        const mul = COSTUME_SCALE[id] == null ? 1.08 : COSTUME_SCALE[id];
         const flip = this.sheep.flipX ? -1 : 1;
+        this.costume.setOrigin(orig.x, orig.y);
+        this.costume.setScale(s * mul);
+        this.costume.setAngle(0);
         this.costume.x = this.sheep.x + (head.x + n.x) * s * flip;
         this.costume.y = this.sheep.y + (head.y + n.y) * s;
         this.costume.setFlipX(this.sheep.flipX);
@@ -288,6 +444,22 @@ function assetUrl(path) {
       } else {
         this.costume.setVisible(false);
       }
+      const cid = this.sheep.collarId;
+      if (cid === "collar" && this.collar) {
+        const pose = this.poseName();
+        const neck = NECK[pose] || NECK.idle;
+        const flip = this.sheep.flipX ? -1 : 1;
+        this.collar.setOrigin(0.5, 1);
+        this.collar.setScale(s);
+        this.collar.setAngle(0);
+        this.collar.x = this.sheep.x + neck.x * s * flip;
+        this.collar.y = this.sheep.y + neck.y * s;
+        this.collar.setFlipX(this.sheep.flipX);
+        this.collar.setVisible(true);
+        this.collar.setDepth(this.sheep.y + 3);
+      } else if (this.collar) {
+        this.collar.setVisible(false);
+      }
       this.sheep.setDepth(this.sheep.y);
     }
 
@@ -295,6 +467,14 @@ function assetUrl(path) {
       this.sheep.costumeId = id || null;
       const tex = COSTUME_TEX[id];
       if (tex && this.textures.exists(tex)) this.costume.setTexture(tex);
+      this.layoutWear();
+    }
+
+    wearCollar(id) {
+      this.sheep.collarId = id || null;
+      if (id === "collar" && this.textures.exists("costume_collar")) {
+        this.collar.setTexture("costume_collar");
+      }
       this.layoutWear();
     }
 
@@ -424,6 +604,7 @@ function assetUrl(path) {
         onUpdate: () => this.layoutWear(),
         onComplete: () => {
           this.mode = "sleep";
+          this.sheep.angle = 0;
           this.showAnim("sleep");
           this.blanket.setVisible(false);
           this.layoutWear();
@@ -917,7 +1098,9 @@ function assetUrl(path) {
   }
 
   async function openLooks() {
-    try { state = Object.assign(state || {}, await MyPetApi.me()); renderHud(); } catch (e) {}
+    try { state = Object.assign(state || {}, await MyPetApi.me()); } catch (e) {}
+    grantStaticUnlocks();
+    renderHud();
     renderLooks();
     $("looks").classList.remove("hidden");
   }
@@ -986,6 +1169,30 @@ function assetUrl(path) {
       openBath: openBathMini,
       setBusy: (v) => { busy = !!v; },
       get busy() { return busy; },
+      setPose: (key) => {
+        if (!pasture) return;
+        pasture.target = null;
+        const k = key || "idle";
+        if (k === "sleep") {
+          pasture.mode = "sleep";
+          pasture.sheep.stop();
+          pasture.sheep.angle = 0;
+          pasture.sheep.setTexture("sleep");
+        } else if (k === "walk" || String(k).indexOf("walk") === 0) {
+          pasture.mode = "walk";
+          pasture.sheep.stop();
+          pasture.sheep.setTexture(k === "walk" ? "walk1" : k);
+        } else {
+          pasture.mode = (k === "idle") ? "idle" : k;
+          pasture.sheep.stop();
+          pasture.sheep.setTexture(k);
+        }
+        pasture.layoutWear();
+      },
+      wear: (id) => { if (pasture) pasture.wear(id); },
+      wearCollar: (id) => { if (pasture) pasture.wearCollar(id); },
+      setCollar,
+      openLooks,
     };
   }
 
@@ -1002,6 +1209,7 @@ function assetUrl(path) {
       return;
     }
     $("boot").classList.add("hidden");
+    grantStaticUnlocks();
     if (!state.pet) {
       $("adopt").classList.remove("hidden");
       $("nameInput").focus();
