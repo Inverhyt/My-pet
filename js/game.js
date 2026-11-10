@@ -1,8 +1,9 @@
 /* Asset paths: relative so GitHub Pages ( /my-pet/ ) works, and /assets/ still works on the Pi server. */
 function assetUrl(path) {
   path = String(path || "").replace(/^\/+/, "");
-  if (typeof window.ASSET_BASE === "string") return window.ASSET_BASE + path;
-  return path;
+  const base = (typeof window.ASSET_BASE === "string") ? window.ASSET_BASE + path : path;
+  const v = window.MYPET_ASSET_V || "2";
+  return base + (base.indexOf("?") >= 0 ? "&" : "?") + "v=" + v;
 }
 
 /* My Pet — Phaser pasture + HTML chrome */
@@ -24,12 +25,25 @@ function assetUrl(path) {
   ];
   const WALK = { x0: 175, y0: 210, x1: 850, y1: 820 };
   const COSTUME_TEX = { crown: "costume_crown", bow: "costume_bow", hat: "costume_hat" };
-  // Offsets from the sheep's feet (origin 0.5,1), in unscaled sprite pixels.
-  // The head tuft sits left of center; the hat used to float above the sheep (y: -122).
-  const COSTUME_POS = {
-    crown: { x: -10, y: -112 },
-    bow:   { x: 16, y: -96 },
-    hat:   { x: -8, y: -100 },
+  // Head tuft is left of sprite center (peak ~x 47 of 133). Offsets from feet (origin 0.5,1).
+  const HEAD = {
+    idle:  { x: -20, y: -108 },
+    walk:  { x: -20, y: -108 },
+    eat:   { x: -22, y: -98 },
+    drink: { x: -20, y: -96 },
+    happy: { x: -20, y: -120 },
+    sleep: { x: -22, y: -112 },
+  };
+  const COSTUME_NUDGE = {
+    crown: { x: 0, y: 0 },
+    bow:   { x: 16, y: 10 },
+    hat:   { x: 0, y: 6 },
+  };
+  // Tappable park toys, in field pixels.
+  const PARK = {
+    hay:    { x: 380, y: 655, r: 70, kind: "hop",    standL: { x: 295, y: 655 }, standR: { x: 475, y: 655 }, label: "hay" },
+    slide:  { x: 590, y: 515, r: 90, kind: "slide",  start: { x: 515, y: 550 }, top: { x: 545, y: 410 }, end: { x: 700, y: 590 }, label: "slide" },
+    tunnel: { x: 220, y: 530, r: 80, kind: "tunnel", start: { x: 140, y: 545 }, end: { x: 310, y: 545 }, label: "tunnel" },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -152,6 +166,8 @@ function assetUrl(path) {
       img("idle", "sheep_idle.png");
       img("walk1", "sheep_walk1.png");
       img("walk2", "sheep_walk2.png");
+      img("walk3", "sheep_walk3.png");
+      img("walk4", "sheep_walk4.png");
       img("eat", "sheep_eat.png");
       img("drink", "sheep_drink.png");
       img("happy", "sheep_happy.png");
@@ -172,11 +188,18 @@ function assetUrl(path) {
       img("bf2", "butterfly2.png");
       img("bfb1", "butterfly_b1.png");
       img("bfb2", "butterfly_b2.png");
+      img("hay_bale", "hay_bale.png");
+      img("slide", "slide.png");
+      img("tunnel", "tunnel.png");
     }
 
     create() {
       pasture = this;
-      this.anims.create({ key: "walk", frames: [{ key: "walk1" }, { key: "walk2" }], frameRate: 6, repeat: -1 });
+      this.anims.create({
+        key: "walk",
+        frames: [{ key: "walk1" }, { key: "walk2" }, { key: "walk3" }, { key: "walk4" }],
+        frameRate: 8, repeat: -1,
+      });
       this.anims.create({ key: "bf", frames: [{ key: "bf1" }, { key: "bf2" }], frameRate: 5, repeat: -1 });
       this.anims.create({ key: "bfb", frames: [{ key: "bfb1" }, { key: "bfb2" }], frameRate: 5, repeat: -1 });
 
@@ -203,6 +226,7 @@ function assetUrl(path) {
       this.idleAt = this.time.now + 8000;
       this.facing = 1;
       this.wear(state.pet && state.pet.costume);
+      this.placePark();
 
       this.field.on("pointerdown", (p) => this.onTap(p));
       this.input.addPointer(2);
@@ -235,19 +259,32 @@ function assetUrl(path) {
       this.layoutWear();
     }
 
+    poseName() {
+      if (this.mode === "sleep") return "sleep";
+      if (this.mode === "walk" || (this.sheep.anims && this.sheep.anims.isPlaying && this.sheep.anims.currentAnim && this.sheep.anims.currentAnim.key === "walk")) return "walk";
+      const key = this.sheep.texture && this.sheep.texture.key;
+      if (HEAD[key]) return key;
+      if (key && String(key).indexOf("walk") === 0) return "walk";
+      return "idle";
+    }
+
     layoutWear() {
       const s = this.fScale;
       this.blanket.x = this.sheep.x;
       this.blanket.y = this.sheep.y - 10 * s;
-      this.blanket.setDepth(this.sheep.y + 1);
-      if (this.sheep.costumeId && COSTUME_POS[this.sheep.costumeId]) {
-        const p = COSTUME_POS[this.sheep.costumeId];
+      this.blanket.setDepth(this.sheep.y - 1);
+      this.blanket.setVisible(false);
+      const id = this.sheep.costumeId;
+      if (id && COSTUME_TEX[id]) {
+        const pose = this.poseName();
+        const head = HEAD[pose] || HEAD.idle;
+        const n = COSTUME_NUDGE[id] || { x: 0, y: 0 };
         const flip = this.sheep.flipX ? -1 : 1;
-        this.costume.x = this.sheep.x + p.x * s * flip;
-        this.costume.y = this.sheep.y + p.y * s;
+        this.costume.x = this.sheep.x + (head.x + n.x) * s * flip;
+        this.costume.y = this.sheep.y + (head.y + n.y) * s;
         this.costume.setFlipX(this.sheep.flipX);
         this.costume.setVisible(true);
-        this.costume.setDepth(this.sheep.y + 2);
+        this.costume.setDepth(this.sheep.y + 4);
       } else {
         this.costume.setVisible(false);
       }
@@ -305,6 +342,7 @@ function assetUrl(path) {
       if (busy || this.mode === "sleep") return;
       if ($("looks").classList.contains("hidden") === false) return;
       if ($("friend").classList.contains("hidden") === false) return;
+      if ($("bath") && $("bath").classList.contains("hidden") === false) return;
       const f = this.toField(pointer.worldX, pointer.worldY);
       if (brushMode) {
         if (this.overSheep(pointer)) this.sparkleAt(pointer.worldX, pointer.worldY);
@@ -318,6 +356,9 @@ function assetUrl(path) {
       for (const [id, s] of Object.entries(SPOTS)) {
         const d = Math.hypot(f.x - s.x, f.y - s.y);
         if (d <= s.r) { this.useSpot(id, s); return; }
+      }
+      for (const [id, s] of Object.entries(PARK)) {
+        if (Math.hypot(f.x - s.x, f.y - s.y) <= s.r) { this.playPark(s.kind); return; }
       }
       for (const fl of FLOWERS) {
         if (Math.hypot(f.x - fl.x, f.y - fl.y) < 36) { this.giftFlower(fl); return; }
@@ -384,14 +425,15 @@ function assetUrl(path) {
         onComplete: () => {
           this.mode = "sleep";
           this.showAnim("sleep");
-          this.blanket.setVisible(true);
+          this.blanket.setVisible(false);
           this.layoutWear();
-          this.floatSprite("zzz", this.sheep.x + 30, this.sheep.y - 80, 1800);
+          this.floatSprite("zzz", this.sheep.x + 28, this.sheep.y - 90, 1600);
+          this.time.delayedCall(900, () => this.floatSprite("zzz", this.sheep.x + 10, this.sheep.y - 100, 1600));
+          this.time.delayedCall(1800, () => this.floatSprite("zzz", this.sheep.x + 32, this.sheep.y - 86, 1400));
           blip("nap");
           toast("Night night 😴");
           doCare("nap").catch(() => {});
-          this.time.delayedCall(3200, () => {
-            this.blanket.setVisible(false);
+          this.time.delayedCall(3400, () => {
             this.goIdle();
             busy = false;
           });
@@ -455,74 +497,113 @@ function assetUrl(path) {
       busy = true;
       const s = SPOTS.basin;
       this.walkTo(s.stand.x, s.stand.y, () => {
-        this.showAnim("drink");
-        toast("Bubbles 🛁");
-        blip("splash");
-        for (let i = 0; i < 10; i++) {
-          this.time.delayedCall(i * 80, () => {
-            const bx = this.sheep.x + (Math.random() - 0.5) * 70;
-            const by = this.sheep.y - 20 - Math.random() * 50;
-            const b = this.add.image(bx, by, "bubble").setScale(this.fScale * (0.8 + Math.random())).setDepth(999);
-            this.tweens.add({ targets: b, y: by - 40, alpha: 0, duration: 800, onComplete: () => b.destroy() });
-          });
-        }
-        this.time.delayedCall(1100, () => {
-          // shake off
-          this.tweens.add({
-            targets: this.sheep, angle: { from: -16, to: 16 }, yoyo: true, duration: 80, repeat: 6,
-            onComplete: () => {
-              this.sheep.angle = 0;
-              for (let i = 0; i < 8; i++) {
-                const d = this.add.image(this.sheep.x, this.sheep.y - 40, "bubble").setScale(this.fScale * 0.6).setDepth(999);
-                this.tweens.add({
-                  targets: d,
-                  x: this.sheep.x + (Math.random() - 0.5) * 120,
-                  y: this.sheep.y - 10 + Math.random() * 30,
-                  alpha: 0, duration: 500, onComplete: () => d.destroy(),
-                });
-              }
-              doCare("bath").catch(() => {});
-              this.goIdle();
-              busy = false;
-            },
-          });
+        this.showAnim("idle");
+        this.layoutWear();
+        openBathMini(() => {
+          doCare("bath").catch(() => {});
+          this.heartBurst();
+          this.sparkleBurst();
+          toast("So clean ✨");
+          blip("unlock");
+          this.goIdle();
+          busy = false;
         });
       });
     }
 
     startPlay() {
+      const kinds = ["hop", "slide", "tunnel"];
+      this._playI = ((this._playI || 0) + 1) % kinds.length;
+      this.playPark(kinds[this._playI]);
+    }
+
+    placePark() {
+      const s = this.fScale;
+      this.parkSprites = {};
+      const hay = this.toWorld(PARK.hay.x, PARK.hay.y);
+      this.parkSprites.hay = this.add.image(hay.x, hay.y, "hay_bale").setScale(s * 2.15).setOrigin(0.5, 1).setDepth(hay.y);
+      const sl = this.toWorld(PARK.slide.x, PARK.slide.y);
+      this.parkSprites.slide = this.add.image(sl.x, sl.y, "slide").setScale(s * 1.85).setOrigin(0.5, 1).setDepth(sl.y + 2);
+      const tn = this.toWorld(PARK.tunnel.x, PARK.tunnel.y);
+      this.parkSprites.tunnel = this.add.image(tn.x, tn.y, "tunnel").setScale(s * 1.85).setOrigin(0.5, 1).setDepth(tn.y + 8);
+    }
+
+    playPark(kind) {
       if (busy) return;
       busy = true;
-      const fx = this.clamp(200 + Math.random() * 600);
-      const fy = this.clampY(280 + Math.random() * 450);
-      const dest = this.toWorld(fx, fy);
-      const sheepF = this.toField(this.sheep.x, this.sheep.y);
-      const start = this.toWorld(sheepF.x + 20, sheepF.y - 40);
-      const ball = this.add.image(start.x, start.y, "ball").setScale(this.fScale * 1.3).setDepth(999);
-      // toss arc
+      if (kind === "hop") this.doHop();
+      else if (kind === "slide") this.doSlide();
+      else this.doTunnel();
+    }
+
+    finishPlay(msg) {
+      doCare("play").catch(() => {});
+      toast(msg);
+      blip("click");
+      this.showAnim("happy");
       this.tweens.add({
-        targets: ball, x: dest.x, duration: 500,
+        targets: this.sheep, y: this.sheep.y - 12, yoyo: true, duration: 140, repeat: 2,
+        onUpdate: () => this.layoutWear(),
+        onComplete: () => { this.goIdle(); busy = false; },
       });
-      this.tweens.add({
-        targets: ball, y: dest.y - 80, duration: 250, yoyo: true, ease: "Quad.easeOut",
-        onComplete: () => { ball.y = dest.y; },
+    }
+
+    doHop() {
+      const p = PARK.hay;
+      this.walkTo(p.standL.x, p.standL.y, () => {
+        this.showAnim("happy");
+        const mid = this.toWorld((p.standL.x + p.standR.x) / 2, p.y - 90);
+        const land = this.toWorld(p.standR.x, p.standR.y);
+        this.tweens.add({
+          targets: this.sheep, x: mid.x, duration: 280, ease: "Sine.easeOut",
+          onUpdate: () => this.layoutWear(),
+        });
+        this.tweens.add({
+          targets: this.sheep, y: mid.y, duration: 280, ease: "Quad.easeOut",
+          onUpdate: () => this.layoutWear(),
+          onComplete: () => {
+            this.tweens.add({
+              targets: this.sheep, x: land.x, y: land.y, duration: 280, ease: "Quad.easeIn",
+              onUpdate: () => this.layoutWear(),
+              onComplete: () => this.finishPlay("Hop! 🌾"),
+            });
+          },
+        });
       });
-      this.time.delayedCall(280, () => {
-        this.walkTo(fx, fy, () => {
-          this.showAnim("happy");
-          this.tweens.add({
-            targets: [this.sheep, ball],
-            y: this.sheep.y - 16, yoyo: true, duration: 160, repeat: 3,
-            onUpdate: () => this.layoutWear(),
-            onComplete: () => {
-              this.tweens.add({ targets: ball, alpha: 0, duration: 250, onComplete: () => ball.destroy() });
-              doCare("play").catch(() => {});
-              toast("Catch! 🎾");
-              blip("click");
-              this.goIdle();
-              busy = false;
-            },
-          });
+    }
+
+    doSlide() {
+      const p = PARK.slide;
+      this.walkTo(p.start.x, p.start.y, () => {
+        const top = this.toWorld(p.top.x, p.top.y);
+        const end = this.toWorld(p.end.x, p.end.y);
+        this.showAnim("idle");
+        this.tweens.add({
+          targets: this.sheep, x: top.x, y: top.y, duration: 450,
+          onUpdate: () => this.layoutWear(),
+          onComplete: () => {
+            this.showAnim("happy");
+            this.tweens.add({
+              targets: this.sheep, x: end.x, y: end.y, duration: 650, ease: "Quad.easeIn",
+              onUpdate: () => this.layoutWear(),
+              onComplete: () => this.finishPlay("Weee 🛝"),
+            });
+          },
+        });
+      });
+    }
+
+    doTunnel() {
+      const p = PARK.tunnel;
+      this.walkTo(p.start.x, p.start.y, () => {
+        const end = this.toWorld(p.end.x, p.end.y);
+        const arch = this.parkSprites && this.parkSprites.tunnel;
+        if (arch) this.sheep.setDepth(arch.depth - 1);
+        this.showAnim("walk");
+        this.tweens.add({
+          targets: this.sheep, x: end.x, y: end.y, duration: 700,
+          onUpdate: () => this.layoutWear(),
+          onComplete: () => this.finishPlay("Through! 🪵"),
         });
       });
     }
@@ -541,9 +622,11 @@ function assetUrl(path) {
           targets: t, alpha: 0, y: p.y - 16, duration: 300, onComplete: () => t.destroy(),
         });
         doCare("treat").catch(() => {});
+        this.heartBurst();
+        this.time.delayedCall(200, () => this.heartBurst());
         toast("Treat! 🍪");
-        blip("eat");
-        this.time.delayedCall(500, () => { this.goIdle(); busy = false; });
+        blip("heart");
+        this.time.delayedCall(700, () => { this.goIdle(); busy = false; });
       });
     }
 
@@ -559,14 +642,26 @@ function assetUrl(path) {
     }
 
     heartBurst() {
-      for (let i = 0; i < 5; i++) {
-        this.time.delayedCall(i * 70, () => {
-          const h = this.add.image(this.sheep.x + (Math.random() - 0.5) * 40, this.sheep.y - 50, "heart")
-            .setScale(this.fScale * 1.4).setDepth(999);
+      for (let i = 0; i < 8; i++) {
+        this.time.delayedCall(i * 60, () => {
+          const h = this.add.image(this.sheep.x + (Math.random() - 0.5) * 50, this.sheep.y - 55, "heart")
+            .setScale(this.fScale * (1.3 + Math.random() * 0.6)).setDepth(999);
           this.tweens.add({
-            targets: h, y: h.y - 50, x: h.x + (Math.random() - 0.5) * 30, alpha: 0, duration: 800,
+            targets: h, y: h.y - 70, x: h.x + (Math.random() - 0.5) * 40, alpha: 0,
+            scale: h.scale * 1.3, duration: 900,
             onComplete: () => h.destroy(),
           });
+        });
+      }
+    }
+
+    sparkleBurst() {
+      for (let i = 0; i < 10; i++) {
+        this.time.delayedCall(i * 50, () => {
+          const x = this.sheep.x + (Math.random() - 0.5) * 70;
+          const y = this.sheep.y - 20 - Math.random() * 70;
+          const sp = this.add.image(x, y, "sparkle").setScale(this.fScale * 1.5).setDepth(999);
+          this.tweens.add({ targets: sp, alpha: 0, y: y - 24, duration: 500, onComplete: () => sp.destroy() });
         });
       }
     }
@@ -608,7 +703,6 @@ function assetUrl(path) {
       const pick = Math.random();
       if (pick < 0.33) {
         // yawn
-        this.showAnim("sleep");
         this.floatSprite("zzz", this.sheep.x + 20, this.sheep.y - 70, 1400);
         this.showBubble("yaaawn");
         this.time.delayedCall(1400, () => this.goIdle());
@@ -658,6 +752,168 @@ function assetUrl(path) {
         this.idleMood();
       }
     }
+  }
+
+  function openBathMini(onDone) {
+    const root = $("bath");
+    if (!root) { if (onDone) onDone(); return; }
+    const hint = $("bathHint");
+    const fill = $("bathFill");
+    const wrap = $("bathSheepWrap");
+    const fx = $("bathFx");
+    const btnRinse = $("bathRinse");
+    const btnDry = $("bathDry");
+    const sheepImg = $("bathSheep");
+    let clean = 0;
+    let phase = "scrub"; // scrub | rinse | dry | done
+    const bubbles = [];
+    let finished = false;
+
+    function setHint(msg) { if (hint) hint.textContent = msg; }
+    function setMeter() {
+      if (fill) fill.style.width = Math.max(0, Math.min(100, clean)) + "%";
+    }
+    function show(el, on) {
+      if (!el) return;
+      el.classList.toggle("hidden", !on);
+    }
+    function sizeCanvas() {
+      if (!fx || !wrap) return;
+      const r = wrap.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      fx.width = Math.max(1, Math.floor(r.width * dpr));
+      fx.height = Math.max(1, Math.floor(r.height * dpr));
+      fx.style.width = r.width + "px";
+      fx.style.height = r.height + "px";
+    }
+    function draw() {
+      if (!fx) return;
+      const ctx = fx.getContext("2d");
+      ctx.clearRect(0, 0, fx.width, fx.height);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      for (const b of bubbles) {
+        ctx.beginPath();
+        ctx.arc(b.x * dpr, b.y * dpr, b.r * dpr, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255," + b.a + ")";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(180,220,230," + Math.min(1, b.a + 0.2) + ")";
+        ctx.lineWidth = 1.5 * dpr;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(b.x * dpr - b.r * 0.3 * dpr, b.y * dpr - b.r * 0.3 * dpr, b.r * 0.22 * dpr, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255," + Math.min(1, b.a + 0.2) + ")";
+        ctx.fill();
+      }
+    }
+
+    function addBubble(x, y) {
+      const rect = wrap.getBoundingClientRect();
+      bubbles.push({
+        x: x - rect.left,
+        y: y - rect.top,
+        r: 6 + Math.random() * 12,
+        a: 0.75,
+      });
+      if (bubbles.length > 40) bubbles.shift();
+      draw();
+    }
+
+    function finish() {
+      if (finished) return;
+      finished = true;
+      document.body.classList.remove("bathing");
+      root.classList.add("hidden");
+      wrap.removeEventListener("pointerdown", onPtr);
+      wrap.removeEventListener("pointermove", onPtr);
+      wrap.removeEventListener("pointerup", onUp);
+      if (onDone) onDone();
+    }
+
+    function onPtr(e) {
+      if (phase !== "scrub") return;
+      if (e.type === "pointermove" && !e.buttons) return;
+      e.preventDefault();
+      addBubble(e.clientX, e.clientY);
+      clean = Math.min(80, clean + (e.buttons || e.pressure || 1) * 1.8);
+      setMeter();
+      if (clean >= 60) {
+        show(btnRinse, true);
+        setHint("Nice! Now rinse");
+      }
+    }
+    function onUp() {}
+
+    btnRinse.onclick = () => {
+      if (phase !== "scrub") return;
+      phase = "rinse";
+      show(btnRinse, false);
+      setHint("Rinse 🚿");
+      blip("splash");
+      // bubbles float away, meter fills
+      const start = performance.now();
+      function step(now) {
+        const t = (now - start) / 900;
+        for (const b of bubbles) {
+          b.y -= 1.6;
+          b.a = Math.max(0, 0.75 * (1 - t));
+        }
+        clean = Math.min(100, clean + 2);
+        setMeter();
+        draw();
+        if (t < 1) requestAnimationFrame(step);
+        else {
+          bubbles.length = 0;
+          draw();
+          clean = 100;
+          setMeter();
+          phase = "dry";
+          show(btnDry, true);
+          setHint("Dry off");
+        }
+      }
+      requestAnimationFrame(step);
+    };
+
+    btnDry.onclick = () => {
+      if (phase !== "dry") return;
+      phase = "done";
+      show(btnDry, false);
+      setHint("All done ✨");
+      if (sheepImg) {
+        sheepImg.classList.add("shake");
+        setTimeout(() => sheepImg.classList.remove("shake"), 700);
+      }
+      wrap.classList.add("sparkle");
+      blip("unlock");
+      setTimeout(finish, 800);
+    };
+
+    clean = 0;
+    phase = "scrub";
+    bubbles.length = 0;
+    setMeter();
+    setHint("Scrub the wool 🧼");
+    show(btnRinse, false);
+    show(btnDry, false);
+    if (sheepImg) sheepImg.classList.remove("shake");
+    wrap.classList.remove("sparkle");
+    root.classList.remove("hidden");
+    document.body.classList.add("bathing");
+    sizeCanvas();
+    draw();
+    wrap.addEventListener("pointerdown", onPtr);
+    wrap.addEventListener("pointermove", onPtr);
+    wrap.addEventListener("pointerup", onUp);
+    // gentle auto help so there is no fail / stuck state
+    clearInterval(openBathMini._help);
+    openBathMini._help = setInterval(() => {
+      if (phase !== "scrub") { clearInterval(openBathMini._help); return; }
+      if (clean < 60) {
+        clean = Math.min(60, clean + 3);
+        setMeter();
+        if (clean >= 60) { show(btnRinse, true); setHint("Nice! Now rinse"); }
+      }
+    }, 700);
   }
 
   async function openLooks() {
@@ -724,7 +980,13 @@ function assetUrl(path) {
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
       scene: [Pasture],
     });
-    window.__mypet = { game, get pasture() { return pasture; }, get state() { return state; }, toast, doCare, renderHud, addHearts: addTestHearts };
+    window.__mypet = {
+      game, get pasture() { return pasture; }, get state() { return state; },
+      toast, doCare, renderHud, addHearts: addTestHearts,
+      openBath: openBathMini,
+      setBusy: (v) => { busy = !!v; },
+      get busy() { return busy; },
+    };
   }
 
   async function main() {
