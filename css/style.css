@@ -284,7 +284,7 @@ body.bathing { overflow: hidden; }
   width: 34px;
   filter: contrast(1.15) saturate(0.85) drop-shadow(0 1px 1px rgba(80,50,20,0.35));
 }
-.bath-actor.fluffy .actor-sheep { filter: contrast(1.02) brightness(1.03); transform: scale(1.04); transform-origin: 50% 100%; }
+.bath-actor.fluffy .actor-sheep { filter: contrast(1.02) brightness(1.05); transform: scale(1.1); transform-origin: 50% 100%; }
 .brush-heart {
   position: absolute;
   font-size: 22px;
@@ -335,4 +335,81 @@ body.bathing { overflow: hidden; }
   .bath-wrap { height: 220px; }
   .bath-actor .actor-sheep { height: 150px; }
   .bath-actions .big { min-height: 56px; }
+}
+
+
+/* Color swatches — big and few words */
+.swatch-row { margin: 8px 0 10px; }
+.swatch-row .lab { font-weight: 800; font-size: 0.95rem; margin-bottom: 6px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+button.swatch {
+  width: 52px; height: 52px; border-radius: 16px;
+  border: 3px solid var(--line);
+  box-shadow: 0 2px 0 var(--line);
+  cursor: pointer; padding: 0;
+  background: #eee;
+}
+button.swatch.on {
+  border-color: var(--brown);
+  box-shadow: 0 0 0 3px #f7c9d2, 0 2px 0 var(--line);
+}
+button.swatch:active { transform: translateY(2px); box-shadow: none; }
+.adopt-colors { margin: 8px 0 4px; }
+.looks-colors { margin-top: 12px; }
+.looks-colors .lab { font-weight: 800; }
+
+/* Bath rinse / dry bits */
+.bath-actor.wet .actor-sheep { filter: saturate(0.88) brightness(0.97) hue-rotate(12deg); }
+.drop, .steam-puff {
+  position: absolute; pointer-events: none; z-index: 6;
+}
+.drop {
+  width: 10px; height: 14px; margin: -7px 0 0 -5px;
+  border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+  background: #8ec8e8;
+  box-shadow: inset -1px -1px 0 #fff8, 6px 8px 0 -3px #b7e3f4;
+  animation: dropfall 0.85s ease-in forwards;
+}
+@keyframes dropfall {
+  0% { transform: translateY(0) scale(0.7); opacity: 1; }
+  100% { transform: translateY(22px) scale(0.9); opacity: 0; }
+}
+.steam-puff {
+  width: 24px; height: 18px; margin: -9px 0 0 -12px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.78);
+  box-shadow: 8px -5px 0 rgba(255,255,255,0.5), -7px 3px 0 rgba(255,248,230,0.4);
+  animation: steampuff 1s ease-out forwards;
+}
+@keyframes steampuff {
+  0% { transform: translateY(0) scale(0.5); opacity: 0.9; }
+  100% { transform: translateY(-22px) scale(1.3); opacity: 0; }
+}
+#soapFill { background: linear-gradient(90deg, #c8e8f6, #9fd4f0); }
+
+#looks.overlay { align-items: flex-start; padding: 8px 12px 10px; }
+#looks .card {
+  max-height: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#looks #looksClose {
+  position: sticky;
+  bottom: 0;
+  background: var(--card);
+  z-index: 3;
+  margin-bottom: 0;
+  margin-top: 8px;
+}
+@media (max-width: 500px) {
+  #looks h2 { font-size: 1.3rem; margin-bottom: 4px; }
+  #looks .lead { display: none; }
+  #looks .look { padding: 6px; }
+  #looks .look img { height: 62px; }
+  #looks .look .need { font-size: 0.8rem; }
+  #looks .card { padding: 12px 12px 8px; }
+  #looks .looks-grid { gap: 8px; }
+  #looks .looks-colors { margin-top: 8px; padding-bottom: 2px; }
+  #looks button.swatch { width: 44px; height: 44px; border-radius: 14px; }
+  #looks .swatches { gap: 8px; }
 }
