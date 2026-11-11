@@ -7,9 +7,9 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="My Pet">
   <base href="./">
-  <meta name="theme-color" content="#f4efe4">
+  <meta name="theme-color" content="#c5dff2">
   <title>My Pet</title>
-  <link rel="stylesheet" href="css/style.css?v=8">
+  <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
   <div id="app">
@@ -19,7 +19,11 @@
       <header class="topbar">
         <div class="who">
           <div class="pet-name" id="petName">My Pet</div>
-          <div class="mood">😊 Happy</div>
+          <div class="mood" id="petMood">😊 Happy</div>
+        </div>
+        <div class="sky-chip" id="skyChip" title="Day">
+          <img id="skyIcon" alt="" width="24" height="24">
+          <img id="wxIcon" class="hidden" alt="" width="24" height="24">
         </div>
         <div class="stats">
           <span id="hearts" title="Friendship">💗 0</span>
@@ -46,7 +50,7 @@
         <p class="lead">Pick a friend. Give them a name.</p>
         <div class="picks">
           <button type="button" class="pick selected" id="pickPet" data-id="sheep_valais">
-            <img id="adoptPreview" src="assets/sheep_idle.png?v=8" alt="Valais sheep">
+            <img id="adoptPreview" src="assets/sheep_idle.png?v=9" alt="Valais sheep">
             <span>🐑 Valais sheep</span>
           </button>
           <button type="button" class="pick selected" id="pickPlace" data-id="field">
@@ -76,10 +80,21 @@
 
     <div id="looks" class="overlay hidden">
       <div class="card">
-        <h2>Looks</h2>
-        <p class="lead">Care for your pet to unlock these.</p>
-        <div class="looks-grid" id="looksGrid"></div>
-        <div id="looksColors" class="looks-colors"></div>
+        <div class="looks-tabs" role="tablist">
+          <button type="button" class="tab on" id="tabLooks">👕 Looks</button>
+          <button type="button" class="tab" id="tabField">🌿 Field</button>
+        </div>
+        <div id="looksPane">
+          <h2>Looks</h2>
+          <p class="lead">Care for your pet to unlock these.</p>
+          <div class="looks-grid" id="looksGrid"></div>
+          <div id="looksColors" class="looks-colors"></div>
+        </div>
+        <div id="fieldPane" class="hidden">
+          <h2>🌿 Field</h2>
+          <p class="lead">Pick a field.</p>
+          <div id="fieldGrid" class="field-grid"></div>
+        </div>
         <button type="button" class="big ghost" id="looksClose">Close</button>
       </div>
     </div>
@@ -105,7 +120,7 @@
         <div id="bathSheepWrap" class="bath-wrap">
           <div class="tub"></div>
           <div id="bathActor" class="bath-actor">
-            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=8" alt="Sheep">
+            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=9" alt="Sheep">
             <img id="bathHat" class="wear-hat hidden" alt="">
             <img id="bathCollar" class="wear-collar hidden" alt="">
           </div>
@@ -129,7 +144,7 @@
         </div>
         <div id="brushWrap" class="bath-wrap brush-wrap">
           <div id="brushActor" class="bath-actor">
-            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=8" alt="Sheep">
+            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=9" alt="Sheep">
             <img id="brushHat" class="wear-hat hidden" alt="">
             <img id="brushCollar" class="wear-collar hidden" alt="">
           </div>
@@ -148,7 +163,7 @@
   </div>
 
   <script>
-    window.MYPET_ASSET_V = "8";
+    window.MYPET_ASSET_V = "9";
     window.ASSET_BASE = (function () {
       var p = location.pathname || "/";
       if (p.indexOf(".html") !== -1) p = p.replace(/[^/]+$/, "");
@@ -158,8 +173,9 @@
     window.MYPET_TEST_MODE = true;
   </script>
   <script src="vendor/phaser.min.js"></script>
-  <script src="js/api.js?v=8"></script>
-  <script src="js/color.js?v=8"></script>
-  <script src="js/game.js?v=8"></script>
+  <script src="js/api.js?v=9"></script>
+  <script src="js/color.js?v=9"></script>
+  <script src="js/world.js?v=9"></script>
+  <script src="js/game.js?v=9"></script>
 </body>
 </html>
