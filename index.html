@@ -9,7 +9,7 @@
   <base href="./">
   <meta name="theme-color" content="#f4efe4">
   <title>My Pet</title>
-  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
   <div id="app">
@@ -46,13 +46,27 @@
         <p class="lead">Pick a friend. Give them a name.</p>
         <div class="picks">
           <button type="button" class="pick selected" id="pickPet" data-id="sheep_valais">
-            <img src="assets/sheep_idle.png" alt="Valais sheep">
+            <img id="adoptPreview" src="assets/sheep_idle.png?v=8" alt="Valais sheep">
             <span>🐑 Valais sheep</span>
           </button>
           <button type="button" class="pick selected" id="pickPlace" data-id="field">
             <img src="assets/field_thumb.png" alt="Pasture">
             <span>🌿 Pasture</span>
           </button>
+        </div>
+        <div id="adoptColors" class="adopt-colors">
+          <div class="swatch-row">
+            <div class="lab">Wool</div>
+            <div class="swatches" id="woolSwatches"></div>
+          </div>
+          <div class="swatch-row">
+            <div class="lab">Face</div>
+            <div class="swatches" id="faceSwatches"></div>
+          </div>
+          <div class="swatch-row">
+            <div class="lab">Eyes</div>
+            <div class="swatches" id="eyeSwatches"></div>
+          </div>
         </div>
         <label class="name-label" for="nameInput">Name</label>
         <input id="nameInput" type="text" maxlength="24" placeholder="Biscuit" autocomplete="off" spellcheck="false">
@@ -65,6 +79,7 @@
         <h2>Looks</h2>
         <p class="lead">Care for your pet to unlock these.</p>
         <div class="looks-grid" id="looksGrid"></div>
+        <div id="looksColors" class="looks-colors"></div>
         <button type="button" class="big ghost" id="looksClose">Close</button>
       </div>
     </div>
@@ -85,12 +100,12 @@
         <p class="lead" id="bathHint">Scrub the wool 🧼</p>
         <div class="meter" aria-label="Clean">
           <div class="meter-track"><div id="bathFill" class="meter-fill"></div></div>
-          <div class="meter-label">✨ Clean</div>
+          <div class="meter-label" id="bathLabel">🧼 Soap</div>
         </div>
         <div id="bathSheepWrap" class="bath-wrap">
           <div class="tub"></div>
           <div id="bathActor" class="bath-actor">
-            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=7" alt="Sheep">
+            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=8" alt="Sheep">
             <img id="bathHat" class="wear-hat hidden" alt="">
             <img id="bathCollar" class="wear-collar hidden" alt="">
           </div>
@@ -98,7 +113,7 @@
         </div>
         <div class="bath-actions">
           <button type="button" class="big hidden" id="bathRinse">🚿 Rinse</button>
-          <button type="button" class="big hidden" id="bathDry">🧺 Dry</button>
+          <button type="button" class="big hidden" id="bathDry">🌬️ Dry</button>
         </div>
       </div>
     </div>
@@ -114,7 +129,7 @@
         </div>
         <div id="brushWrap" class="bath-wrap brush-wrap">
           <div id="brushActor" class="bath-actor">
-            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=7" alt="Sheep">
+            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=8" alt="Sheep">
             <img id="brushHat" class="wear-hat hidden" alt="">
             <img id="brushCollar" class="wear-collar hidden" alt="">
           </div>
@@ -133,7 +148,7 @@
   </div>
 
   <script>
-    window.MYPET_ASSET_V = "7";
+    window.MYPET_ASSET_V = "8";
     window.ASSET_BASE = (function () {
       var p = location.pathname || "/";
       if (p.indexOf(".html") !== -1) p = p.replace(/[^/]+$/, "");
@@ -143,7 +158,8 @@
     window.MYPET_TEST_MODE = true;
   </script>
   <script src="vendor/phaser.min.js"></script>
-  <script src="js/api.js?v=7"></script>
-  <script src="js/game.js?v=7"></script>
+  <script src="js/api.js?v=8"></script>
+  <script src="js/color.js?v=8"></script>
+  <script src="js/game.js?v=8"></script>
 </body>
 </html>
