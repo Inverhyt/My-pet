@@ -9,7 +9,7 @@
   <base href="./">
   <meta name="theme-color" content="#c5dff2">
   <title>My Pet</title>
-  <link rel="stylesheet" href="css/style.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body>
   <div id="app">
@@ -18,10 +18,13 @@
     <div id="hud" class="hidden">
       <header class="topbar">
         <div class="who">
-          <div class="pet-name" id="petName">My Pet</div>
+          <div class="name-row">
+            <div class="pet-name" id="petName">My Pet</div>
+            <button type="button" id="journalBtn" class="journal-btn hidden" title="Journal">📖</button>
+          </div>
           <div class="mood" id="petMood">😊 Happy</div>
         </div>
-        <div class="sky-chip" id="skyChip" title="Day">
+<div class="sky-chip" id="skyChip" title="Day">
           <img id="skyIcon" alt="" width="24" height="24">
           <img id="wxIcon" class="hidden" alt="" width="24" height="24">
         </div>
@@ -33,7 +36,14 @@
       </header>
       <div id="toast"></div>
       <div id="bubble" class="hidden"></div>
+      <button type="button" id="petPrev" class="pet-arrow left hidden" aria-label="Last pet">⬅️</button>
+      <button type="button" id="petNext" class="pet-arrow right hidden" aria-label="Next pet">➡️</button>
+      <div id="petDots" class="pet-dots hidden"></div>
+      <div id="slotPane" class="slot-pane hidden">
+        <div class="slot-card" id="slotCard"></div>
+      </div>
       <nav class="toolbar" id="toolbar">
+
         <button data-act="brush" type="button"><span class="e">🪮</span><span class="w">Brush</span></button>
         <button data-act="bath" type="button"><span class="e">🛁</span><span class="w">Bath</span></button>
         <button data-act="play" type="button"><span class="e">🛝</span><span class="w">Play</span></button>
@@ -45,19 +55,22 @@
     </div>
 
     <div id="adopt" class="overlay hidden">
-      <div class="card">
-        <h1>My Pet</h1>
-        <p class="lead">Pick a friend. Give them a name.</p>
-        <div class="picks">
-          <button type="button" class="pick selected" id="pickPet" data-id="sheep_valais">
-            <img id="adoptPreview" src="assets/sheep_idle.png?v=9" alt="Valais sheep">
-            <span>🐑 Valais sheep</span>
-          </button>
-          <button type="button" class="pick selected" id="pickPlace" data-id="field">
-            <img src="assets/field_thumb.png" alt="Pasture">
-            <span>🌿 Pasture</span>
+      <div class="paper" id="adoptPaper">
+        <div class="paper-doodle" aria-hidden="true"></div>
+        <img class="paper-seal" src="assets/seal.png?v=10" alt="">
+        <h1>📜 Adopt</h1>
+        <p class="lead">A new friend.</p>
+        <div class="paper-date">🎂 Birthday <span id="adoptDate">Today</span></div>
+
+        <div class="species-row" id="speciesRow">
+          <button type="button" class="species-card on" id="pickPet" data-id="sheep_valais">
+            <img id="adoptPreview" src="assets/sheep_idle.png?v=10" alt="Valais sheep">
+            <span>🐑 Valais</span>
           </button>
         </div>
+        <div class="soon-label">Coming soon</div>
+        <div id="soonRow" class="soon-row"></div>
+
         <div id="adoptColors" class="adopt-colors">
           <div class="swatch-row">
             <div class="lab">Wool</div>
@@ -72,9 +85,17 @@
             <div class="swatches" id="eyeSwatches"></div>
           </div>
         </div>
+
+        <div class="lab field-lab">🌿 Field</div>
+        <div id="adoptFields" class="adopt-fields"></div>
+
         <label class="name-label" for="nameInput">Name</label>
         <input id="nameInput" type="text" maxlength="24" placeholder="Biscuit" autocomplete="off" spellcheck="false">
         <button type="button" class="big" id="adoptBtn">💗 Adopt</button>
+        <div id="stampFx" class="stamp-fx hidden">
+          <img class="stamp-seal" src="assets/seal.png?v=10" alt="">
+        </div>
+        <div id="confetti" class="confetti"></div>
       </div>
     </div>
 
@@ -108,6 +129,33 @@
       </div>
     </div>
 
+    <div id="journal" class="overlay hidden">
+      <div class="card journal-card">
+        <h2>📖 Journal</h2>
+        <div class="j-head">
+          <div class="j-name" id="jName">My Pet</div>
+          <div class="j-meta" id="jMeta"></div>
+        </div>
+        <h3>Milestones</h3>
+        <ul id="jMiles" class="j-miles"></ul>
+        <h3>📷 Photos</h3>
+        <div id="jAlbum" class="j-album"></div>
+        <button type="button" class="big ghost" id="journalClose">Close</button>
+      </div>
+    </div>
+
+    <div id="bday" class="overlay hidden">
+      <div class="card bday-card">
+        <div class="bday-emoji">🎂</div>
+        <h2 id="bdayTitle">Happy birthday!</h2>
+        <p class="lead" id="bdayLead"></p>
+        <p class="bday-bonus" id="bdayBonus"></p>
+        <button type="button" class="big" id="bdayClose">Yay!</button>
+      </div>
+    </div>
+
+
+
 
     <div id="bath" class="overlay hidden">
       <div class="card bath-card">
@@ -120,7 +168,7 @@
         <div id="bathSheepWrap" class="bath-wrap">
           <div class="tub"></div>
           <div id="bathActor" class="bath-actor">
-            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=9" alt="Sheep">
+            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=10" alt="Sheep">
             <img id="bathHat" class="wear-hat hidden" alt="">
             <img id="bathCollar" class="wear-collar hidden" alt="">
           </div>
@@ -144,7 +192,7 @@
         </div>
         <div id="brushWrap" class="bath-wrap brush-wrap">
           <div id="brushActor" class="bath-actor">
-            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=9" alt="Sheep">
+            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=10" alt="Sheep">
             <img id="brushHat" class="wear-hat hidden" alt="">
             <img id="brushCollar" class="wear-collar hidden" alt="">
           </div>
@@ -163,7 +211,7 @@
   </div>
 
   <script>
-    window.MYPET_ASSET_V = "9";
+    window.MYPET_ASSET_V = "10";
     window.ASSET_BASE = (function () {
       var p = location.pathname || "/";
       if (p.indexOf(".html") !== -1) p = p.replace(/[^/]+$/, "");
@@ -173,9 +221,10 @@
     window.MYPET_TEST_MODE = true;
   </script>
   <script src="vendor/phaser.min.js"></script>
-  <script src="js/api.js?v=9"></script>
-  <script src="js/color.js?v=9"></script>
-  <script src="js/world.js?v=9"></script>
-  <script src="js/game.js?v=9"></script>
+  <script src="js/api.js?v=10"></script>
+  <script src="js/color.js?v=10"></script>
+  <script src="js/world.js?v=10"></script>
+  <script src="js/pets.js?v=10"></script>
+  <script src="js/game.js?v=10"></script>
 </body>
 </html>

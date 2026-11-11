@@ -17,6 +17,13 @@ Open: **https://inverhyt.github.io/My-pet/**
 9. The sky around the pasture follows the time of day. One full day takes 8 real hours, so a new day starts three times a day. At night Biscuit naps in his hay bed on his own. Tap him or care for him and he wakes, then he goes back to sleep after a while. Needs never drop.
 10. Open Looks and tap 🌿 Field to pick a grass theme. All five are free.
 11. Weather comes and goes on its own: clear, rain, snow, and sometimes a rainbow after rain.
+12. The adopt screen is a cute paper certificate. It shows today's date as the pet's birthday, and you can pick colors and a field. A stamp and confetti play when you tap Adopt.
+13. On the pet's birthday each month you get a little party (bunting, and a party hat if no other hat is on), plus a one-time 🎂 popup with bonus hearts. The yearly birthday is the big one.
+14. You can have more than one pet. Your old save becomes pet #1. Big ⬅️➡️ arrows, a swipe, and a dot row switch between their fields. The last slot is ➕ Adopt.
+15. The first pet is free. More slots unlock with friendship hearts added up across all pets: slot 2 at 30, slot 3 at 75, then +60 each. Locked slots show a heart bar.
+16. Only the Valais sheep is ready for now. Fox, rock, capybara, dragon, kiwi bird, cat, and dog show as locked Coming soon cards on the paper.
+17. Each pet has a 📖 Journal: birthday, days together, auto milestones, and a photo album of the last 12 shots from 📷 Photo.
+
 
 Add it to your Home Screen from Safari or Chrome if you like.
 
