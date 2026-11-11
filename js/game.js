@@ -2,7 +2,7 @@
 function assetUrl(path) {
   path = String(path || "").replace(/^\/+/, "");
   const base = (typeof window.ASSET_BASE === "string") ? window.ASSET_BASE + path : path;
-  const v = window.MYPET_ASSET_V || "9";
+  const v = window.MYPET_ASSET_V || "10";
   return base + (base.indexOf("?") >= 0 ? "&" : "?") + "v=" + v;
 }
 
@@ -93,6 +93,8 @@ function assetUrl(path) {
   let pasture = null;
   let busy = false;
   let brushMode = false;
+  let viewSlot = 0;
+  let slotBusy = false;
 
   function toast(msg, ms = 2200) {
     const el = $("toast");
@@ -122,36 +124,52 @@ function assetUrl(path) {
     } catch (e) {}
   }
 
+  function syncActivePet() {
+    if (!state) return;
+    if (!Array.isArray(state.pets)) state.pets = state.pet ? [state.pet] : [];
+    if (state.pet) {
+      let i = typeof state.activePet === "number" ? state.activePet : -1;
+      if (i < 0 || i >= state.pets.length || state.pets[i] !== state.pet) {
+        const id = state.pet.id;
+        const j = id ? state.pets.findIndex((p) => p && p.id === id) : -1;
+        if (j >= 0) i = j;
+        else if (i < 0 || i >= state.pets.length) i = 0;
+      }
+      if (i >= 0 && i < state.pets.length) {
+        state.pets[i] = state.pet;
+        state.activePet = i;
+      } else if (!state.pets.length) {
+        state.pets = [state.pet];
+        state.activePet = 0;
+      }
+    }
+  }
+
   function persistStaticPet() {
-    if (!state || !state.pet) return;
-    // Persist into the static test save so MyPetApi.equip and the collar
-    // slot stay in sync even though static-pages/js/api.js is not edited.
+    if (!state) return;
+    if (window.MyPetRoster && state.pet) MyPetRoster.normalizePet(state.pet);
+    syncActivePet();
     try {
-      const raw = localStorage.getItem(STATIC_SAVE);
-      const data = raw ? JSON.parse(raw) : { pet: state.pet, coins: state.coins || 0 };
-      if (!data.pet) data.pet = state.pet;
-      const u = Array.isArray(state.pet.unlocked) ? state.pet.unlocked.slice() : [];
-      data.pet.unlocked = u;
-      if (typeof state.pet.friendship === "number") data.pet.friendship = state.pet.friendship;
-      if (state.pet.costume !== undefined) data.pet.costume = state.pet.costume;
-      data.pet.collar = state.pet.collar || null;
-      if (typeof state.coins === "number") data.coins = state.coins;
-      if (window.MyPetColor) MyPetColor.migratePet(state.pet);
-      data.pet.wool = state.pet.wool;
-      data.pet.face = state.pet.face;
-      data.pet.eyes = state.pet.eyes;
-      data.pet.costumeColors = state.pet.costumeColors || {};
-      data.pet.fieldTheme = state.pet.fieldTheme || "meadow";
+      const data = {
+        version: 10,
+        pet: state.pet || null,
+        pets: state.pets || [],
+        activePet: state.activePet || 0,
+        coins: typeof state.coins === "number" ? state.coins : 0,
+      };
+      if (data.pet && window.MyPetColor) MyPetColor.migratePet(data.pet);
       localStorage.setItem(STATIC_SAVE, JSON.stringify(data));
-      try {
-        localStorage.setItem("mypet-colors-v1", JSON.stringify({
-          wool: state.pet.wool, face: state.pet.face, eyes: state.pet.eyes,
-          costumeColors: state.pet.costumeColors || {},
-        }));
-      } catch (e2) {}
-      try {
-        localStorage.setItem("mypet-world-v1", JSON.stringify({ fieldTheme: data.pet.fieldTheme }));
-      } catch (e3) {}
+      if (data.pet) {
+        try {
+          localStorage.setItem("mypet-colors-v1", JSON.stringify({
+            wool: data.pet.wool, face: data.pet.face, eyes: data.pet.eyes,
+            costumeColors: data.pet.costumeColors || {},
+          }));
+        } catch (e2) {}
+        try {
+          localStorage.setItem("mypet-world-v1", JSON.stringify({ fieldTheme: data.pet.fieldTheme || "meadow" }));
+        } catch (e3) {}
+      }
     } catch (e) {}
   }
 
@@ -159,39 +177,43 @@ function assetUrl(path) {
     const old = state && state.pet;
     if (resPet) {
       if (!state) state = {};
+      if (old) {
+        ["id", "species", "wool", "face", "eyes", "costumeColors", "fieldTheme",
+          "birthday", "created_at", "journal", "birthdaySeen", "collar"].forEach((k) => {
+          if ((resPet[k] == null || resPet[k] === "") && old[k] != null) resPet[k] = old[k];
+        });
+      }
       state.pet = resPet;
     }
     if (!state || !state.pet) return;
-    if (old) {
-      if (!state.pet.collar && old.collar) state.pet.collar = old.collar;
-      if (!state.pet.wool && old.wool) state.pet.wool = old.wool;
-      if (!state.pet.face && old.face) state.pet.face = old.face;
-      if (!state.pet.eyes && old.eyes) state.pet.eyes = old.eyes;
-      if (!state.pet.costumeColors && old.costumeColors) state.pet.costumeColors = old.costumeColors;
-      if (!state.pet.fieldTheme && old.fieldTheme) state.pet.fieldTheme = old.fieldTheme;
+    if (!state.pet.wool || !state.pet.face || !state.pet.eyes) {
+      try {
+        const raw = localStorage.getItem("mypet-colors-v1");
+        if (raw) {
+          const c = JSON.parse(raw);
+          if (!state.pet.wool && c.wool) state.pet.wool = c.wool;
+          if (!state.pet.face && c.face) state.pet.face = c.face;
+          if (!state.pet.eyes && c.eyes) state.pet.eyes = c.eyes;
+          if (!state.pet.costumeColors && c.costumeColors) state.pet.costumeColors = c.costumeColors;
+        }
+      } catch (e) {}
     }
-    try {
-      const raw = localStorage.getItem("mypet-colors-v1");
-      if (raw) {
-        const c = JSON.parse(raw);
-        if (!state.pet.wool && c.wool) state.pet.wool = c.wool;
-        if (!state.pet.face && c.face) state.pet.face = c.face;
-        if (!state.pet.eyes && c.eyes) state.pet.eyes = c.eyes;
-        if (!state.pet.costumeColors && c.costumeColors) state.pet.costumeColors = c.costumeColors;
-      }
-    } catch (e) {}
-    try {
-      const rawW = localStorage.getItem("mypet-world-v1");
-      if (rawW) {
-        const w = JSON.parse(rawW);
-        if (!state.pet.fieldTheme && w.fieldTheme) state.pet.fieldTheme = w.fieldTheme;
-      }
-    } catch (e) {}
+    if (!state.pet.fieldTheme) {
+      try {
+        const rawW = localStorage.getItem("mypet-world-v1");
+        if (rawW) {
+          const w = JSON.parse(rawW);
+          if (w.fieldTheme) state.pet.fieldTheme = w.fieldTheme;
+        }
+      } catch (e) {}
+    }
     if (window.MyPetWorld && window.MyPetWorld.forced && window.MyPetWorld.forced.field) {
       state.pet.fieldTheme = window.MyPetWorld.forced.field;
     }
     if (!state.pet.fieldTheme) state.pet.fieldTheme = "meadow";
     if (window.MyPetColor) MyPetColor.migratePet(state.pet);
+    if (window.MyPetRoster) MyPetRoster.normalizePet(state.pet);
+    syncActivePet();
     persistStaticPet();
   }
 
@@ -346,6 +368,10 @@ function assetUrl(path) {
       if (u && u.id && !seen[u.id]) { seen[u.id] = true; list.push(u); }
     }
     if (!list.length) return;
+    if (window.MyPetRoster && state.pet) {
+      list.forEach((u) => MyPetRoster.logLookUnlock(state.pet, u.id));
+      persistStaticPet();
+    }
     list.forEach((u, i) => {
       const show = () => {
         toast("New look! " + u.emoji + " " + u.name, 3000);
@@ -420,8 +446,13 @@ function assetUrl(path) {
     const res = await MyPetApi.addHearts(n);
     mergePet(res.pet || state.pet);
     state.coin_today = res.coin_today || state.coin_today;
+    if (window.MyPetRoster && state.pet) {
+      MyPetRoster.maybeHeartMilestones(state.pet);
+      persistStaticPet();
+    }
     const grantedExtra = grantStaticUnlocks();
     renderHud();
+    renderPetChrome();
     if (res.new_unlocks && res.new_unlocks.length) {
       noteUnlocks(res, grantedExtra);
     } else if (grantedExtra.length) {
@@ -605,8 +636,15 @@ function assetUrl(path) {
     mergePet(res.pet);
     state.coins = res.coins;
     state.coin_today = res.pet.coin_day === res.day_key;
+    if (window.MyPetRoster && state.pet) {
+      if (action === "bath") MyPetRoster.logMilestone(state.pet, "first_bath", "First bath", "🛁");
+      if (action === "brush") MyPetRoster.logMilestone(state.pet, "first_brush", "First brush", "🪮");
+      MyPetRoster.maybeHeartMilestones(state.pet);
+      persistStaticPet();
+    }
     const grantedExtra = grantStaticUnlocks();
     renderHud();
+    renderPetChrome();
     if (res.coin_awarded) {
       toast("+1 coin 🪙");
       blip("coin");
@@ -660,6 +698,8 @@ function assetUrl(path) {
       img("hay_bale", "hay_bale.png");
       img("slide", "slide.png");
       img("tunnel", "tunnel.png");
+      img("party_hat", "party_hat.png");
+      img("bunting", "bunting.png");
     }
 
     create() {
@@ -684,6 +724,9 @@ function assetUrl(path) {
       const fieldKey = this.textures.exists("field_" + currentFieldId()) ? ("field_" + currentFieldId()) : "field";
       this.field = this.add.image(this.fieldX, this.fieldY, fieldKey).setOrigin(0, 0).setScale(scale);
       this.field.setInteractive();
+      this.bunting = this.add.image(this.fieldX + FIELD * scale / 2, this.fieldY + 108 * scale, "bunting")
+        .setOrigin(0.5, 0).setVisible(false).setDepth(8);
+      this.bunting.setDisplaySize(864 * scale, 48 * scale * 1.35);
       this.skyTint = this.add.rectangle(this.fieldX, this.fieldY, FIELD * scale, FIELD * scale, 0x152044, 0).setOrigin(0, 0).setDepth(8000);
       this.stars = [];
       this.wxGfx = this.add.graphics().setDepth(8010);
@@ -699,6 +742,7 @@ function assetUrl(path) {
       this.blanket = this.add.image(0, 0, "blanket").setOrigin(0.5, 0.7).setScale(scale).setVisible(false);
       this.costume = this.add.image(0, 0, this.textures.exists(liveKey("costume_crown")) ? liveKey("costume_crown") : "costume_crown").setOrigin(0.5, 1).setScale(scale * 1.08).setVisible(false);
       this.collar = this.add.image(0, 0, this.textures.exists(liveKey("costume_collar")) ? liveKey("costume_collar") : "costume_collar").setOrigin(0.5, 1).setScale(scale).setVisible(false);
+      this.partyHat = this.add.image(0, 0, "party_hat").setOrigin(0.5, 1).setScale(scale).setVisible(false);
 
       const start = this.toWorld(512, 560);
       this.place(start.x, start.y);
@@ -709,6 +753,7 @@ function assetUrl(path) {
       this.facing = 1;
       this.wear(state.pet && state.pet.costume);
       this.wearCollar(state.pet && state.pet.collar);
+      applyBirthdayDecor();
       this.placePark();
 
       this.field.on("pointerdown", (p) => this.onTap(p));
@@ -812,6 +857,21 @@ function assetUrl(path) {
         this.collar.setVisible(true);
       } else if (this.collar) {
         this.collar.setVisible(false);
+      }
+      if (this.partyHat) {
+        const party = window.MyPetRoster && state && state.pet
+          && MyPetRoster.isBirthdayToday(state.pet)
+          && !state.pet.costume
+          && this.sheep && this.sheep.visible
+          && viewSlot === state.activePet;
+        if (party) {
+          const pose = this.poseName();
+          const head = HEAD[pose] || HEAD.idle;
+          pin(this.partyHat, head.x, head.y - 10, 1.22, { x: 0.5, y: 1 }, 5);
+          this.partyHat.setVisible(true);
+        } else {
+          this.partyHat.setVisible(false);
+        }
       }
       const bf = this._perchedBf;
       if (bf && bf.active) {
@@ -1436,6 +1496,7 @@ function assetUrl(path) {
         const n = (state.pet && state.pet.name) || "mypet";
         a.download = n.replace(/\s+/g, "_") + ".png";
         a.click();
+        saveJournalPhoto(img.src);
       });
     }
 
@@ -1536,6 +1597,9 @@ function assetUrl(path) {
           this.heartBurst();
           toast("A friend! 🦋");
           blip("heart");
+          if (window.MyPetRoster && state.pet) {
+            if (MyPetRoster.logMilestone(state.pet, "first_butterfly", "First butterfly", "🦋")) persistStaticPet();
+          }
           this.time.delayedCall(1100, () => {
             this._perchedBf = null;
             if (!bf.active) {
@@ -2187,14 +2251,14 @@ function assetUrl(path) {
       grid.appendChild(btn);
     });
   }
-  function setFieldTheme(id) {
+  function setFieldTheme(id, quiet) {
     if (!state || !state.pet || !window.MyPetWorld) return;
     if (MyPetWorld.FIELD_IDS.indexOf(id) < 0) return;
     state.pet.fieldTheme = id;
     persistStaticPet();
     if (pasture && pasture.setFieldTheme) pasture.setFieldTheme(id);
     renderFieldPicker();
-    blip("click");
+    if (!quiet) blip("click");
   }
   function openFriend() { $("friend").classList.remove("hidden"); }
   function closeFriend() { $("friend").classList.add("hidden"); }
@@ -2203,6 +2267,10 @@ function assetUrl(path) {
     $("toolbar").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-act]");
       if (!btn || !pasture) return;
+      if (viewSlot >= ((state && state.pets) || []).length) {
+        goToSlot(((state && state.pets) || []).length - 1, -1);
+        return;
+      }
       const act = btn.dataset.act;
       if (act === "brush") pasture.startBrush();
       else if (act === "bath") pasture.startBath();
@@ -2227,28 +2295,478 @@ function assetUrl(path) {
     }
     $("adoptBtn").addEventListener("click", onAdopt);
     $("nameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") onAdopt(); });
+    bindRosterUi();
+  }
+
+  function renderSoonCards() {
+    const row = $("soonRow");
+    if (!row || !window.MyPetRoster) return;
+    row.innerHTML = "";
+    MyPetRoster.COMING_SOON.forEach((s) => {
+      const b = document.createElement("div");
+      b.className = "soon-card";
+      const img = document.createElement("img");
+      img.alt = "";
+      img.src = assetUrl("assets/" + s.file);
+      const name = document.createElement("span");
+      name.textContent = s.emoji + " " + s.name;
+      const tag = document.createElement("span");
+      tag.className = "soon-tag";
+      tag.textContent = "Coming soon";
+      const lock = document.createElement("span");
+      lock.className = "lock-mark";
+      lock.textContent = "🔒";
+      b.appendChild(lock);
+      b.appendChild(img);
+      b.appendChild(name);
+      b.appendChild(tag);
+      row.appendChild(b);
+    });
+  }
+
+  function renderAdoptFields() {
+    const row = $("adoptFields");
+    if (!row || !window.MyPetWorld) return;
+    if (!window._adoptPick) window._adoptPick = { wool: "white", face: "black", eyes: "white", field: "meadow" };
+    if (!window._adoptPick.field) window._adoptPick.field = "meadow";
+    row.innerHTML = "";
+    MyPetWorld.FIELDS.forEach((f) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "adopt-field" + (window._adoptPick.field === f.id ? " on" : "");
+      const img = document.createElement("img");
+      img.alt = "";
+      img.src = assetUrl("assets/" + f.thumb);
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = f.emoji + " " + f.name;
+      b.appendChild(img);
+      b.appendChild(name);
+      b.addEventListener("click", () => {
+        window._adoptPick.field = f.id;
+        renderAdoptFields();
+      });
+      row.appendChild(b);
+    });
+  }
+
+  function prepareAdoptPaper() {
+    const d = $("adoptDate");
+    if (d && window.MyPetRoster) d.textContent = MyPetRoster.formatShort(MyPetRoster.pacificYmd(new Date()));
+    renderSoonCards();
+    renderAdoptFields();
+    refreshAdoptPreview();
+  }
+
+  function openAdopt() {
+    prepareAdoptPaper();
+    if ($("nameInput")) $("nameInput").value = "";
+    if ($("adoptBtn")) $("adoptBtn").disabled = false;
+    $("adopt").classList.remove("hidden");
+  }
+
+  function playStampAndConfetti() {
+    return new Promise((resolve) => {
+      const fx = $("stampFx");
+      const conf = $("confetti");
+      if (fx) {
+        fx.classList.remove("hidden");
+        fx.classList.remove("go");
+        void fx.offsetWidth;
+        fx.classList.add("go");
+      }
+      if (conf) {
+        conf.innerHTML = "";
+        const colors = ["#e8899a", "#f3d291", "#8fd3a0", "#8ec8e8", "#d4a0e8", "#f3b36a", "#fff"];
+        for (let i = 0; i < 36; i++) {
+          const el = document.createElement("i");
+          el.style.left = (3 + Math.random() * 94) + "%";
+          el.style.background = colors[i % colors.length];
+          el.style.width = (8 + Math.random() * 8) + "px";
+          el.style.height = (12 + Math.random() * 10) + "px";
+          el.style.animationDelay = (Math.random() * 0.2) + "s";
+          el.style.animationDuration = (0.85 + Math.random() * 0.5) + "s";
+          conf.appendChild(el);
+        }
+      }
+      blip("unlock");
+      setTimeout(resolve, 900);
+    });
+  }
+
+  function applyBirthdayDecor(on) {
+    if (on == null) {
+      on = !!(window.MyPetRoster && state && state.pet
+        && viewSlot === state.activePet
+        && MyPetRoster.isBirthdayToday(state.pet));
+    }
+    if (!pasture) return;
+    if (pasture.bunting) {
+      const s = pasture.fScale || 1;
+      pasture.bunting.setVisible(!!on);
+      pasture.bunting.setDisplaySize(864 * s, 48 * s * 1.35);
+      const pos = pasture.toWorld(512, 108);
+      pasture.bunting.x = pos.x;
+      pasture.bunting.y = pos.y;
+      pasture.bunting.setDepth(8);
+    }
+    if (pasture.layoutWear) pasture.layoutWear();
+  }
+
+  function applySceneForPet() {
+    if (!pasture) return;
+    applyPetLook();
+    if (state.pet && state.pet.fieldTheme) setFieldTheme(state.pet.fieldTheme, true);
+    if (pasture.wear) pasture.wear(state.pet && state.pet.costume);
+    if (pasture.wearCollar) pasture.wearCollar(state.pet && state.pet.collar);
+    if (pasture.toWorld && pasture.place) {
+      const start = pasture.toWorld(512, 560);
+      pasture.place(start.x, start.y);
+    }
+    if (pasture.sheep) {
+      pasture.sheep.setVisible(viewSlot < ((state.pets || []).length));
+      pasture.sheep.flipX = false;
+      pasture.mode = "idle";
+      if (pasture.sheep.anims) pasture.sheep.stop();
+      const idle = pasture.textures.exists(liveKey("idle")) ? liveKey("idle") : "idle";
+      pasture.sheep.setTexture(idle);
+    }
+    applyBirthdayDecor();
+    if (pasture.applyWorld) pasture.applyWorld(true);
+    applySky();
+    busy = false;
+  }
+
+  function renderSlotCard(locked) {
+    const card = $("slotCard");
+    if (!card) return;
+    const need = window.MyPetRoster ? MyPetRoster.slotAt((state.pets || []).length + 1) : 30;
+    const have = window.MyPetRoster ? MyPetRoster.totalHearts(state) : 0;
+    card.innerHTML = "";
+    if (locked) {
+      const pct = Math.min(100, Math.round((have / Math.max(need, 1)) * 100));
+      const lock = document.createElement("div"); lock.className = "slot-lock"; lock.textContent = "🔒";
+      const title = document.createElement("div"); title.className = "slot-title"; title.textContent = "Soon";
+      const needP = document.createElement("p"); needP.className = "slot-need"; needP.textContent = "Need 💗 " + need;
+      const bar = document.createElement("div"); bar.className = "heart-bar"; bar.setAttribute("aria-label", "Hearts");
+      const fill = document.createElement("span"); fill.style.width = pct + "%"; bar.appendChild(fill);
+      const haveP = document.createElement("p"); haveP.className = "slot-need"; haveP.textContent = "💗 " + have + " / " + need;
+      card.appendChild(lock); card.appendChild(title); card.appendChild(needP); card.appendChild(bar); card.appendChild(haveP);
+    } else {
+      const plus = document.createElement("div"); plus.className = "slot-plus"; plus.textContent = "➕";
+      const title = document.createElement("div"); title.className = "slot-title"; title.textContent = "Adopt";
+      const btn = document.createElement("button"); btn.type = "button"; btn.className = "big"; btn.id = "slotAdoptBtn"; btn.textContent = "💗 Adopt";
+      btn.addEventListener("click", () => openAdopt());
+      card.appendChild(plus); card.appendChild(title); card.appendChild(btn);
+    }
+  }
+
+  function renderPetChrome() {
+    const n = (state && state.pets && state.pets.length) || 0;
+    const hasPet = n > 0;
+    const jbtn = $("journalBtn");
+    if (jbtn) jbtn.classList.toggle("hidden", !hasPet || viewSlot >= n);
+    const dots = $("petDots");
+    const prev = $("petPrev");
+    const next = $("petNext");
+    const pane = $("slotPane");
+    if (!hasPet) {
+      if (dots) dots.classList.add("hidden");
+      if (prev) prev.classList.add("hidden");
+      if (next) next.classList.add("hidden");
+      if (pane) pane.classList.add("hidden");
+      return;
+    }
+    const unlocked = window.MyPetRoster ? MyPetRoster.unlockedSlots(state) : 1;
+    if (viewSlot == null) viewSlot = state.activePet || 0;
+    if (viewSlot < 0) viewSlot = 0;
+    if (viewSlot > n) viewSlot = n;
+    if (dots) {
+      dots.classList.remove("hidden");
+      dots.innerHTML = "";
+      for (let i = 0; i < n; i++) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "pet-dot" + (viewSlot === i ? " on" : "");
+        const name = (state.pets[i] && state.pets[i].name) || ("Pet " + (i + 1));
+        b.title = name;
+        b.setAttribute("aria-label", name);
+        b.addEventListener("click", () => goToSlot(i));
+        dots.appendChild(b);
+      }
+      const trail = document.createElement("button");
+      trail.type = "button";
+      const locked = n >= unlocked;
+      trail.className = "pet-dot " + (locked ? "lock" : "plus") + (viewSlot === n ? " on" : "");
+      trail.textContent = locked ? "🔒" : "➕";
+      trail.title = locked ? "Locked" : "Adopt";
+      trail.addEventListener("click", () => goToSlot(n));
+      dots.appendChild(trail);
+    }
+    if (prev) prev.classList.toggle("hidden", viewSlot <= 0);
+    if (next) next.classList.toggle("hidden", viewSlot >= n);
+    if (pane) {
+      if (viewSlot >= n) {
+        pane.classList.remove("hidden");
+        renderSlotCard(n >= unlocked);
+      } else {
+        pane.classList.add("hidden");
+      }
+    }
+    if (pasture && pasture.sheep) {
+      const show = viewSlot < n;
+      pasture.sheep.setVisible(show);
+      if (!show) {
+        if (pasture.costume) pasture.costume.setVisible(false);
+        if (pasture.collar) pasture.collar.setVisible(false);
+        if (pasture.partyHat) pasture.partyHat.setVisible(false);
+      }
+    }
+  }
+
+  function goToSlot(i, dir) {
+    if (slotBusy) return;
+    const n = ((state && state.pets) || []).length;
+    if (i < 0 || i > n) return;
+    if (i === viewSlot) return;
+    dir = dir || (i > viewSlot ? 1 : -1);
+    slotBusy = true;
+    const g = $("game");
+    if (g) {
+      g.classList.remove("slide-left", "slide-right");
+      void g.offsetWidth;
+      g.classList.add(dir > 0 ? "slide-left" : "slide-right");
+    }
+    setTimeout(() => {
+      viewSlot = i;
+      if (i < n) {
+        persistStaticPet();
+        state.activePet = i;
+        state.pet = state.pets[i];
+        persistStaticPet();
+        applySceneForPet();
+        renderHud();
+        renderLooks();
+        maybeCelebrateBirthday();
+      } else {
+        applyBirthdayDecor(false);
+        if (pasture && pasture.sheep) pasture.sheep.setVisible(false);
+      }
+      renderPetChrome();
+      setTimeout(() => { slotBusy = false; }, 200);
+    }, 120);
+  }
+
+  let bdayPending = null;
+
+  function showBirthday(st) {
+    bdayPending = st;
+    const year = st.type === "year";
+    if ($("bdayTitle")) $("bdayTitle").textContent = year ? "🎂 Happy birthday!" : "🎂 A little birthday!";
+    const name = (state.pet && state.pet.name) || "Friend";
+    if ($("bdayLead")) {
+      $("bdayLead").textContent = year
+        ? (name + " is " + (st.years || 1) + " today.")
+        : ("One more month with " + name + ".");
+    }
+    if ($("bdayBonus")) $("bdayBonus").textContent = "+" + (st.bonus || 0) + " 💗";
+    $("bday").classList.remove("hidden");
+  }
+
+  function maybeCelebrateBirthday() {
+    if (!window.MyPetRoster || !state || !state.pet || viewSlot !== state.activePet) {
+      applyBirthdayDecor(false);
+      return;
+    }
+    const st = MyPetRoster.birthdayStatus(state.pet);
+    applyBirthdayDecor(!!(st && st.party));
+    if (!st || !st.type || st.seen) return;
+    showBirthday(st);
+  }
+
+  async function closeBirthday() {
+    if ($("bday")) $("bday").classList.add("hidden");
+    const st = bdayPending;
+    bdayPending = null;
+    if (!st || !state || !state.pet) return;
+    MyPetRoster.markBirthdaySeen(state.pet, st.key);
+    if (st.bonus) {
+      if (MyPetApi.addHearts) {
+        try {
+          const res = await MyPetApi.addHearts(st.bonus);
+          mergePet(res.pet || state.pet);
+        } catch (e) {
+          state.pet.friendship = (state.pet.friendship || 0) + st.bonus;
+        }
+      } else {
+        state.pet.friendship = (state.pet.friendship || 0) + st.bonus;
+      }
+    }
+    MyPetRoster.logMilestone(state.pet, "bday_" + st.key, st.type === "year" ? "Birthday" : "Mini birthday", "🎂");
+    MyPetRoster.maybeHeartMilestones(state.pet);
+    const grantedExtra = grantStaticUnlocks();
+    persistStaticPet();
+    renderHud();
+    renderPetChrome();
+    applyBirthdayDecor(true);
+    if (grantedExtra.length) noteUnlocks({}, grantedExtra);
+    toast("+" + (st.bonus || 0) + " 💗");
+    blip("heart");
+  }
+
+  function openJournal() {
+    if (!state || !state.pet || !window.MyPetRoster) return;
+    const p = state.pet;
+    if ($("jName")) $("jName").textContent = p.name;
+    const days = MyPetRoster.daysTogether(p);
+    if ($("jMeta")) $("jMeta").textContent = "🎂 " + MyPetRoster.formatShort(p.birthday) + " · Together " + days + " days";
+    const ul = $("jMiles");
+    if (ul) {
+      ul.innerHTML = "";
+      const miles = (p.journal && p.journal.milestones) || [];
+      if (!miles.length) {
+        const li = document.createElement("li");
+        li.className = "j-empty";
+        li.textContent = "No notes yet.";
+        ul.appendChild(li);
+      } else {
+        miles.forEach((m) => {
+          const li = document.createElement("li");
+          const e = document.createElement("span"); e.className = "e"; e.textContent = m.emoji || "💗";
+          const lab = document.createElement("span"); lab.textContent = m.label;
+          const when = document.createElement("span"); when.className = "when"; when.textContent = MyPetRoster.formatShort(m.date);
+          li.appendChild(e); li.appendChild(lab); li.appendChild(when);
+          ul.appendChild(li);
+        });
+      }
+    }
+    const album = $("jAlbum");
+    if (album) {
+      album.innerHTML = "";
+      const photos = (p.journal && p.journal.photos) || [];
+      if (!photos.length) {
+        const empty = document.createElement("div");
+        empty.className = "j-empty";
+        empty.style.gridColumn = "1 / -1";
+        empty.textContent = "No photos yet. Tap 📷 Photo.";
+        album.appendChild(empty);
+      } else {
+        photos.slice().reverse().forEach((ph) => {
+          const im = document.createElement("img");
+          im.src = ph.src;
+          im.alt = ph.date || "photo";
+          album.appendChild(im);
+        });
+      }
+    }
+    $("journal").classList.remove("hidden");
+  }
+
+  function saveJournalPhoto(dataUrl) {
+    if (!window.MyPetRoster || !state || !state.pet || !dataUrl) return;
+    const im = new Image();
+    im.onload = () => {
+      const w = 200, h = Math.max(1, Math.round(im.height * 200 / Math.max(im.width, 1)));
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(im, 0, 0, w, h);
+      let out = dataUrl;
+      try { out = c.toDataURL("image/jpeg", 0.7); } catch (e) {}
+      MyPetRoster.addPhoto(state.pet, out);
+      persistStaticPet();
+    };
+    im.src = dataUrl;
+  }
+
+  function bindRosterUi() {
+    if ($("petPrev")) $("petPrev").addEventListener("click", () => goToSlot(viewSlot - 1, -1));
+    if ($("petNext")) $("petNext").addEventListener("click", () => goToSlot(viewSlot + 1, 1));
+    if ($("journalBtn")) $("journalBtn").addEventListener("click", openJournal);
+    if ($("journalClose")) $("journalClose").addEventListener("click", () => $("journal").classList.add("hidden"));
+    if ($("bdayClose")) $("bdayClose").addEventListener("click", closeBirthday);
+    let sx = 0, sy = 0, st = 0;
+    const app = $("app") || document.body;
+    app.addEventListener("touchstart", (e) => {
+      if (!e.touches || !e.touches[0]) return;
+      const t = e.target;
+      if (t && t.closest && (t.closest("button") || t.closest("input") || t.closest(".overlay"))) return;
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+    }, { passive: true });
+    app.addEventListener("touchend", (e) => {
+      if (!sx) return;
+      const t = (e.changedTouches && e.changedTouches[0]) || {};
+      const dx = (t.clientX || 0) - sx, dy = (t.clientY || 0) - sy;
+      sx = 0;
+      if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+      if (Date.now() - st > 800) return;
+      if (document.querySelector(".overlay:not(.hidden)")) return;
+      if (dx < 0) goToSlot(viewSlot + 1, 1);
+      else goToSlot(viewSlot - 1, -1);
+    }, { passive: true });
   }
 
   async function onAdopt() {
     const name = ($("nameInput").value || "Biscuit").trim().slice(0, 24);
+    const pick = window._adoptPick || { wool: "white", face: "black", eyes: "white", field: "meadow" };
     try {
       $("adoptBtn").disabled = true;
-      state = await MyPetApi.adopt(name, "sheep_valais", "field");
-      if (state && state.pet) {
-        state.pet.wool = (window._adoptPick && _adoptPick.wool) || "white";
-        state.pet.face = (window._adoptPick && _adoptPick.face) || "black";
-        state.pet.eyes = (window._adoptPick && _adoptPick.eyes) || "white";
-        state.pet.costumeColors = {};
-        if (window.MyPetColor) MyPetColor.migratePet(state.pet);
-        persistStaticPet();
+      await playStampAndConfetti();
+      const already = !!(state && state.pets && state.pets.length);
+      let pet;
+      if (!already) {
+        state = await MyPetApi.adopt(name, "sheep_valais", "field");
+        pet = state.pet;
+      } else {
+        pet = MyPetRoster.makePet({
+          name: name,
+          wool: pick.wool,
+          face: pick.face,
+          eyes: pick.eyes,
+          fieldTheme: pick.field || "meadow",
+        });
+        if (window.MyPetColor) MyPetColor.migratePet(pet);
+        if (!Array.isArray(state.pets)) state.pets = [];
+        state.pets.push(pet);
+        state.activePet = state.pets.length - 1;
+        state.pet = pet;
       }
+      if (pet) {
+        pet.name = name;
+        pet.wool = pick.wool || "white";
+        pet.face = pick.face || "black";
+        pet.eyes = pick.eyes || "white";
+        pet.fieldTheme = pick.field || "meadow";
+        if (window.MyPetColor) MyPetColor.migratePet(pet);
+        if (window.MyPetRoster) {
+          MyPetRoster.normalizePet(pet);
+          MyPetRoster.logMilestone(pet, "adopted", "Came home", "💗", pet.birthday);
+        }
+      }
+      if (!Array.isArray(state.pets) || !state.pets.length) {
+        state.pets = [pet];
+        state.activePet = 0;
+      }
+      state.pet = pet;
+      persistStaticPet();
       $("adopt").classList.add("hidden");
-      startGame();
+      const fx = $("stampFx");
+      if (fx) fx.classList.add("hidden");
+      viewSlot = state.activePet;
+      if (!game) startGame();
+      else {
+        applySceneForPet();
+        renderHud();
+        renderLooks();
+        renderPetChrome();
+      }
       toast("Welcome, " + state.pet.name + " 💗");
       blip("unlock");
+      $("adoptBtn").disabled = false;
     } catch (err) {
       toast(String(err.message || err));
       $("adoptBtn").disabled = false;
+      const fx = $("stampFx");
+      if (fx) fx.classList.add("hidden");
     }
   }
 
@@ -2257,7 +2775,13 @@ function assetUrl(path) {
     $("boot").classList.add("hidden");
     applySky();
     renderHud();
-    if (game) return;
+    viewSlot = (state && typeof state.activePet === "number") ? state.activePet : 0;
+    renderPetChrome();
+    if (game) {
+      applySceneForPet();
+      setTimeout(() => maybeCelebrateBirthday(), 400);
+      return;
+    }
     game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: "game",
@@ -2331,7 +2855,21 @@ function assetUrl(path) {
       },
       setField: (id) => setFieldTheme(id),
       applyWorld: () => { applySky(); if (pasture && pasture.applyWorld) pasture.applyWorld(true); },
+      openAdopt,
+      openJournal,
+      goToSlot,
+      playAdoptStamp: playStampAndConfetti,
+      showBirthday: (st) => {
+        st = st || (window.MyPetRoster && state && state.pet && MyPetRoster.birthdayStatus(state.pet)) || {};
+        if (!st.type) st = { type: "year", key: "y-test", bonus: 10, party: true, years: 1, seen: false };
+        applyBirthdayDecor(true);
+        showBirthday(st);
+      },
+      renderPetChrome,
+      prepareAdoptPaper,
+      maybeCelebrateBirthday,
     };
+    setTimeout(() => maybeCelebrateBirthday(), 800);
   }
 
   async function main() {
@@ -2347,6 +2885,7 @@ function assetUrl(path) {
       return;
     }
     $("boot").classList.add("hidden");
+    if (window.MyPetRoster) state = MyPetRoster.migrateState(state || {});
     mergePet(state && state.pet);
     applySky();
     grantStaticUnlocks();
@@ -2357,15 +2896,19 @@ function assetUrl(path) {
     });
     bindAdoptColors();
     if (!state.pet) {
-      $("adopt").classList.remove("hidden");
-      $("nameInput").focus();
-      refreshAdoptPreview();
+      openAdopt();
     } else {
       startGame();
     }
+    window.__mypet = window.__mypet || {};
+    window.__mypet.playAdoptStamp = window.__mypet.playAdoptStamp || playStampAndConfetti;
+    window.__mypet.openAdopt = window.__mypet.openAdopt || openAdopt;
+    window.__mypet.openJournal = window.__mypet.openJournal || openJournal;
+    window.__mypet.prepareAdoptPaper = window.__mypet.prepareAdoptPaper || prepareAdoptPaper;
+    window.__mypet.getState = () => state;
   }
 
-  window._adoptPick = { wool: "white", face: "black", eyes: "white" };
+  window._adoptPick = { wool: "white", face: "black", eyes: "white", field: "meadow" };
 
   function makeSwatches(el, order, names, pal, current, onPick) {
     if (!el) return;
