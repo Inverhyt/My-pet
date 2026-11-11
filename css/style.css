@@ -413,3 +413,103 @@ button.swatch:active { transform: translateY(2px); box-shadow: none; }
   #looks button.swatch { width: 44px; height: 44px; border-radius: 14px; }
   #looks .swatches { gap: 8px; }
 }
+
+
+/* --- v9: sky, weather chip, field picker --- */
+body {
+  background: var(--sky, #c5dff2);
+  transition: background-color 1.4s linear, color 1.4s linear;
+}
+#app, #game { background: transparent; }
+.sky-chip {
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 8px;
+  margin: 0 8px 0 auto;
+}
+.sky-chip img {
+  width: 24px; height: 24px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+.topbar { pointer-events: none; }
+.topbar .who { pointer-events: none; }
+
+body.sky-night { color: #f4efe4; }
+body.sky-night .who .pet-name,
+body.sky-night .mood { color: #f4efe4; text-shadow: 0 1px 0 rgba(0,0,0,0.35); }
+body.sky-night .topbar {
+  background: linear-gradient(to bottom, rgba(18,26,48,0.82), rgba(18,26,48,0.0));
+}
+body.sky-night .toolbar {
+  background: rgba(18,26,48,0.88);
+  border-top-color: #3a4a6a;
+}
+body.sky-dawn .topbar {
+  background: linear-gradient(to bottom, rgba(247,212,196,0.9), rgba(247,212,196,0.0));
+}
+body.sky-sunset .topbar {
+  background: linear-gradient(to bottom, rgba(201,160,200,0.72), rgba(232,154,104,0.0));
+}
+body.sky-day .topbar {
+  background: linear-gradient(to bottom, rgba(197,223,242,0.88), rgba(197,223,242,0.0));
+}
+
+.looks-tabs {
+  display: flex; gap: 8px; margin-bottom: 10px;
+}
+.looks-tabs .tab {
+  flex: 1;
+  font: inherit; font-weight: 800; font-size: 1.05rem;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 3px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: 0 2px 0 var(--line);
+}
+.looks-tabs .tab.on {
+  background: #fde4c8;
+  border-color: var(--brown);
+}
+.looks-tabs .tab:active { transform: translateY(2px); box-shadow: none; }
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.field-pick {
+  background: #fff;
+  border: 3px solid var(--line);
+  border-radius: 16px;
+  padding: 6px;
+  cursor: pointer;
+  font: inherit; font-weight: 800; color: var(--ink);
+}
+.field-pick img {
+  width: 100%; height: 96px;
+  object-fit: cover;
+  image-rendering: pixelated;
+  border-radius: 10px;
+  display: block;
+  background: #f4efe4;
+}
+.field-pick .name { display: block; margin-top: 4px; }
+.field-pick.on {
+  border-color: var(--pink);
+  box-shadow: 0 0 0 3px #f7c9d2;
+}
+
+@media (max-width: 500px) {
+  .field-pick img { height: 78px; }
+  .looks-tabs .tab { font-size: 0.95rem; padding: 7px 8px; }
+  .sky-chip { padding: 2px 6px; margin-right: 6px; }
+  .sky-chip img { width: 22px; height: 22px; }
+}
