@@ -2,7 +2,7 @@
 function assetUrl(path) {
   path = String(path || "").replace(/^\/+/, "");
   const base = (typeof window.ASSET_BASE === "string") ? window.ASSET_BASE + path : path;
-  const v = window.MYPET_ASSET_V || "7";
+  const v = window.MYPET_ASSET_V || "8";
   return base + (base.indexOf("?") >= 0 ? "&" : "?") + "v=" + v;
 }
 
@@ -136,8 +136,168 @@ function assetUrl(path) {
       if (state.pet.costume !== undefined) data.pet.costume = state.pet.costume;
       data.pet.collar = state.pet.collar || null;
       if (typeof state.coins === "number") data.coins = state.coins;
+      if (window.MyPetColor) MyPetColor.migratePet(state.pet);
+      data.pet.wool = state.pet.wool;
+      data.pet.face = state.pet.face;
+      data.pet.eyes = state.pet.eyes;
+      data.pet.costumeColors = state.pet.costumeColors || {};
       localStorage.setItem(STATIC_SAVE, JSON.stringify(data));
+      try {
+        localStorage.setItem("mypet-colors-v1", JSON.stringify({
+          wool: state.pet.wool, face: state.pet.face, eyes: state.pet.eyes,
+          costumeColors: state.pet.costumeColors || {},
+        }));
+      } catch (e2) {}
     } catch (e) {}
+  }
+
+  function mergePet(resPet) {
+    const old = state && state.pet;
+    if (resPet) {
+      if (!state) state = {};
+      state.pet = resPet;
+    }
+    if (!state || !state.pet) return;
+    if (old) {
+      if (!state.pet.collar && old.collar) state.pet.collar = old.collar;
+      if (!state.pet.wool && old.wool) state.pet.wool = old.wool;
+      if (!state.pet.face && old.face) state.pet.face = old.face;
+      if (!state.pet.eyes && old.eyes) state.pet.eyes = old.eyes;
+      if (!state.pet.costumeColors && old.costumeColors) state.pet.costumeColors = old.costumeColors;
+    }
+    try {
+      const raw = localStorage.getItem("mypet-colors-v1");
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (!state.pet.wool && c.wool) state.pet.wool = c.wool;
+        if (!state.pet.face && c.face) state.pet.face = c.face;
+        if (!state.pet.eyes && c.eyes) state.pet.eyes = c.eyes;
+        if (!state.pet.costumeColors && c.costumeColors) state.pet.costumeColors = c.costumeColors;
+      }
+    } catch (e) {}
+    if (window.MyPetColor) MyPetColor.migratePet(state.pet);
+    persistStaticPet();
+  }
+
+  function petColors() {
+    const p = (state && state.pet) || {};
+    return { wool: p.wool || "white", face: p.face || "black", eyes: p.eyes || "white" };
+  }
+  function costumeColorOf(id) {
+    const map = (state && state.pet && state.pet.costumeColors) || {};
+    return map[id] || "default";
+  }
+  function liveKey(key) { return key ? "_c_" + key : key; }
+
+  const SHEEP_KEYS = ["idle", "walk1", "walk2", "walk3", "walk4", "eat", "drink", "happy", "sleep"];
+  const COLOR_IMG = {};
+  function loadColorImg(file, cb) {
+    if (COLOR_IMG[file] && COLOR_IMG[file].complete && COLOR_IMG[file].naturalWidth) {
+      if (cb) cb(COLOR_IMG[file]);
+      return COLOR_IMG[file];
+    }
+    const im = COLOR_IMG[file] || new Image();
+    COLOR_IMG[file] = im;
+    im.crossOrigin = "anonymous";
+    if (cb) im.addEventListener("load", () => cb(im), { once: true });
+    if (!im.src) im.src = assetUrl("assets/" + file);
+    else if (im.complete && cb) cb(im);
+    return im;
+  }
+  function sheepCanvas(pose) {
+    const file = pose.indexOf("sheep_") === 0 ? pose + ".png" : "sheep_" + pose + ".png";
+    const im = COLOR_IMG[file];
+    if (!im || !im.naturalWidth || !window.MyPetColor) return null;
+    return MyPetColor.recolorSheepImage(im, petColors());
+  }
+  function sheepDataUrl(pose) {
+    const c = sheepCanvas(pose);
+    return c ? c.toDataURL("image/png") : assetUrl("assets/" + (pose.indexOf("sheep_") === 0 ? pose + ".png" : "sheep_" + pose + ".png"));
+  }
+  function costumeDataUrl(id) {
+    const file = (id === "collar" ? "costume_collar" : (COSTUME_TEX[id] || ("costume_" + id))) + ".png";
+    const im = COLOR_IMG[file];
+    if (!im || !im.naturalWidth || !window.MyPetColor) return assetUrl("assets/" + file);
+    const kind = id === "collar" ? "collar" : id;
+    return MyPetColor.recolorCostumeImage(im, kind, costumeColorOf(id)).toDataURL("image/png");
+  }
+  function preloadColorImages(done) {
+    const files = SHEEP_KEYS.map((k) => "sheep_" + k + ".png").concat([
+      "costume_crown.png", "costume_bow.png", "costume_hat.png", "costume_witch.png", "costume_collar.png",
+    ]);
+    let left = files.length;
+    files.forEach((f) => loadColorImg(f, () => { left--; if (left <= 0 && done) done(); }));
+  }
+
+  function applyPetLook() {
+    if (!pasture || !pasture.textures) return;
+    const sc = pasture;
+    if (!sc._baseImgs) {
+      sc._baseImgs = {};
+      SHEEP_KEYS.forEach((k) => {
+        const tex = sc.textures.get(k);
+        if (tex && tex.getSourceImage) {
+          const src = tex.getSourceImage();
+          const c = document.createElement("canvas");
+          c.width = src.width; c.height = src.height;
+          c.getContext("2d", { willReadFrequently: true }).drawImage(src, 0, 0);
+          sc._baseImgs[k] = c;
+        }
+      });
+      ["costume_crown", "costume_bow", "costume_hat", "costume_witch", "costume_collar"].forEach((k) => {
+        const tex = sc.textures.get(k);
+        if (tex && tex.getSourceImage) {
+          const src = tex.getSourceImage();
+          const c = document.createElement("canvas");
+          c.width = src.width; c.height = src.height;
+          c.getContext("2d", { willReadFrequently: true }).drawImage(src, 0, 0);
+          sc._baseImgs[k] = c;
+        }
+      });
+    }
+    function paint(key, canvas) {
+      if (!canvas) return;
+      const live = liveKey(key);
+      if (!sc.textures.exists(live)) {
+        sc.textures.addCanvas(live, canvas);
+      } else {
+        const tex = sc.textures.get(live);
+        const src = tex.getSourceImage && tex.getSourceImage();
+        if (src && src.getContext) {
+          const ctx = src.getContext("2d", { willReadFrequently: true });
+          ctx.clearRect(0, 0, src.width, src.height);
+          ctx.drawImage(canvas, 0, 0);
+        }
+        if (typeof tex.refresh === "function") tex.refresh();
+      }
+    }
+    if (window.MyPetColor) {
+      SHEEP_KEYS.forEach((k) => {
+        const base = sc._baseImgs[k];
+        if (base) paint(k, MyPetColor.recolorSheepImage(base, petColors()));
+      });
+      const map = { crown: "costume_crown", bow: "costume_bow", hat: "costume_hat", witch: "costume_witch", collar: "costume_collar" };
+      Object.keys(map).forEach((id) => {
+        const base = sc._baseImgs[map[id]];
+        if (base) paint(map[id], MyPetColor.recolorCostumeImage(base, id, costumeColorOf(id)));
+      });
+    }
+    if (sc.sheep) {
+      const raw = String(sc.sheep.texture && sc.sheep.texture.key || "idle").replace(/^_c_/, "");
+      if (raw === "walk" || raw.indexOf("walk") === 0) {
+        if (sc.sheep.anims) sc.sheep.play("walk");
+      } else if (sc.textures.exists(liveKey(raw))) {
+        sc.sheep.setTexture(liveKey(raw));
+      }
+      if (sc.costume && sc.sheep.costumeId && COSTUME_TEX[sc.sheep.costumeId]) {
+        const live = liveKey(COSTUME_TEX[sc.sheep.costumeId]);
+        if (sc.textures.exists(live)) sc.costume.setTexture(live);
+      }
+      if (sc.collar && sc.sheep.collarId === "collar" && sc.textures.exists(liveKey("costume_collar"))) {
+        sc.collar.setTexture(liveKey("costume_collar"));
+      }
+      sc.layoutWear();
+    }
   }
 
   function grantStaticUnlocks() {
@@ -192,7 +352,7 @@ function assetUrl(path) {
     n = n || 10;
     if (!state || !state.pet || !MyPetApi.addHearts) return;
     const res = await MyPetApi.addHearts(n);
-    state.pet = res.pet || state.pet;
+    mergePet(res.pet || state.pet);
     state.coin_today = res.coin_today || state.coin_today;
     const grantedExtra = grantStaticUnlocks();
     renderHud();
@@ -234,6 +394,7 @@ function assetUrl(path) {
     const grid = $("looksGrid");
     grid.innerHTML = "";
     const pet = state && state.pet;
+    if (window.MyPetColor && pet) MyPetColor.migratePet(pet);
     const unlocked = (pet && pet.unlocked) || [];
     const items = [
       { id: null, name: "No look", emoji: "✨", img: assetUrl("assets/sheep_idle.png"), at: 0, slot: "costume" },
@@ -264,10 +425,9 @@ function assetUrl(path) {
             return;
           }
           const res = await MyPetApi.equip(it.id);
-          state.pet = res.pet;
-          // Keep the collar slot; static api.js only knows about costume.
-          if (pet && pet.collar) state.pet.collar = pet.collar;
+          mergePet(res.pet);
           persistStaticPet();
+          applyPetLook();
           renderHud(); renderLooks();
           if (pasture) pasture.wear(state.pet.costume);
           toast(it.id ? "Cute! " + it.emoji : "Look cleared");
@@ -276,11 +436,107 @@ function assetUrl(path) {
       }
       grid.appendChild(btn);
     }
+    paintLookPreviews();
+    renderLooksColors();
+  }
+
+  function paintLookPreviews() {
+    if (!window.MyPetColor) return;
+    const sheepIm = COLOR_IMG["sheep_idle.png"];
+    if (!sheepIm || !sheepIm.naturalWidth) {
+      loadColorImg("sheep_idle.png", () => { paintLookPreviews(); renderLooksColors(); });
+      return;
+    }
+    const sheep = MyPetColor.recolorSheepImage(sheepIm, petColors());
+    const grid = $("looksGrid");
+    if (!grid) return;
+    const btns = grid.querySelectorAll(".look");
+    const ids = [null, "crown", "collar", "bow", "hat", "witch"];
+    btns.forEach((btn, i) => {
+      const img = btn.querySelector("img");
+      const id = ids[i];
+      if (!img) return;
+      if (!id) { img.src = sheep.toDataURL("image/png"); return; }
+      const file = id === "collar" ? "costume_collar.png" : "costume_" + id + ".png";
+      const cim = COLOR_IMG[file];
+      if (!cim || !cim.naturalWidth) { loadColorImg(file, paintLookPreviews); return; }
+      const hat = MyPetColor.recolorCostumeImage(cim, id, costumeColorOf(id));
+      const c = document.createElement("canvas");
+      c.width = 133; c.height = 139;
+      const ctx = c.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(sheep, 0, (139 - sheep.height) / 2);
+      // Feet at the bottom of the 121px idle art, drawn at y=(139-121)/2.
+      // Hats use HEAD + nudge; the collar uses NECK once (do not add it twice).
+      const scale = 1;
+      const feetY = (139 - sheep.height) / 2 + sheep.height;
+      const feetX = 133 / 2;
+      const sit = id === "collar" ? (NECK.idle || { x: -16, y: -28 }) : (HEAD.idle || { x: -16, y: -92 });
+      const nudge = id === "collar" ? { x: 0, y: 0 } : (COSTUME_NUDGE[id] || { x: 0, y: 0 });
+      const mul = id === "collar" ? 1 : (COSTUME_SCALE[id] == null ? 1.08 : COSTUME_SCALE[id]);
+      const dx = feetX + (sit.x + nudge.x) * scale;
+      const dy = feetY + (sit.y + nudge.y) * scale;
+      ctx.drawImage(hat, dx - (hat.width * mul) / 2, dy - hat.height * mul, hat.width * mul, hat.height * mul);
+      img.src = c.toDataURL("image/png");
+    });
+  }
+
+  function renderLooksColors() {
+    const box = $("looksColors");
+    if (!box || !window.MyPetColor) return;
+    box.innerHTML = "";
+    const pet = state && state.pet;
+    if (!pet) return;
+    const unlocked = pet.unlocked || [];
+    const rows = [];
+    if (pet.costume && unlocked.includes(pet.costume)) {
+      rows.push({ id: pet.costume, label: ({ crown: "🌸 Crown", bow: "🎀 Bow", hat: "🎩 Hat", witch: "🧙 Hat" }[pet.costume] || "Color") });
+    }
+    if (pet.collar === "collar" && unlocked.includes("collar")) {
+      rows.push({ id: "collar", label: "🔔 Bell" });
+    }
+    if (!rows.length) return;
+    rows.forEach((row) => {
+      const wrap = document.createElement("div");
+      wrap.className = "swatch-row";
+      wrap.innerHTML = '<div class="lab">' + row.label + '</div>';
+      const rowEl = document.createElement("div");
+      rowEl.className = "swatches";
+      const current = costumeColorOf(row.id);
+      MyPetColor.HUT_ORDER.forEach((cid) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "swatch" + (current === cid ? " on" : "");
+        btn.title = MyPetColor.HUT_NAMES[cid] || cid;
+        btn.setAttribute("aria-label", MyPetColor.HUT_NAMES[cid] || cid);
+        btn.style.background = MyPetColor.swatchHex(row.id, cid);
+        btn.addEventListener("click", () => {
+          if (!state.pet.costumeColors) state.pet.costumeColors = {};
+          state.pet.costumeColors[row.id] = cid;
+          persistStaticPet();
+          applyPetLook();
+          renderLooks();
+          blip("click");
+        });
+        rowEl.appendChild(btn);
+      });
+      wrap.appendChild(rowEl);
+      box.appendChild(wrap);
+    });
+  }
+
+  async function setCostumeColor(id, colorId) {
+    if (!state || !state.pet) return;
+    if (!state.pet.costumeColors) state.pet.costumeColors = {};
+    state.pet.costumeColors[id] = colorId || "default";
+    persistStaticPet();
+    applyPetLook();
+    renderLooks();
   }
 
   async function doCare(action, after) {
     const res = await MyPetApi.care(action);
-    state.pet = res.pet;
+    mergePet(res.pet);
     state.coins = res.coins;
     state.coin_today = res.pet.coin_day === res.day_key;
     const grantedExtra = grantStaticUnlocks();
@@ -337,9 +593,11 @@ function assetUrl(path) {
 
     create() {
       pasture = this;
+      applyPetLook();
+      const walkKeys = ["walk1", "walk2", "walk3", "walk4"].map((k) => this.textures.exists(liveKey(k)) ? liveKey(k) : k);
       this.anims.create({
         key: "walk",
-        frames: [{ key: "walk1" }, { key: "walk2" }, { key: "walk3" }, { key: "walk4" }],
+        frames: walkKeys.map((k) => ({ key: k })),
         frameRate: 8, repeat: -1,
       });
       this.anims.create({ key: "bf", frames: [{ key: "bf1" }, { key: "bf2" }], frameRate: 5, repeat: -1 });
@@ -355,11 +613,11 @@ function assetUrl(path) {
       this.field = this.add.image(this.fieldX, this.fieldY, "field").setOrigin(0, 0).setScale(scale);
       this.field.setInteractive();
 
-      this.sheep = this.add.sprite(0, 0, "idle").setOrigin(0.5, 1).setScale(scale);
+      this.sheep = this.add.sprite(0, 0, this.textures.exists(liveKey("idle")) ? liveKey("idle") : "idle").setOrigin(0.5, 1).setScale(scale);
       this.sheep.playX = 0.5;
       this.blanket = this.add.image(0, 0, "blanket").setOrigin(0.5, 0.7).setScale(scale).setVisible(false);
-      this.costume = this.add.image(0, 0, "costume_crown").setOrigin(0.5, 1).setScale(scale * 1.08).setVisible(false);
-      this.collar = this.add.image(0, 0, "costume_collar").setOrigin(0.5, 1).setScale(scale).setVisible(false);
+      this.costume = this.add.image(0, 0, this.textures.exists(liveKey("costume_crown")) ? liveKey("costume_crown") : "costume_crown").setOrigin(0.5, 1).setScale(scale * 1.08).setVisible(false);
+      this.collar = this.add.image(0, 0, this.textures.exists(liveKey("costume_collar")) ? liveKey("costume_collar") : "costume_collar").setOrigin(0.5, 1).setScale(scale).setVisible(false);
 
       const start = this.toWorld(512, 560);
       this.place(start.x, start.y);
@@ -407,7 +665,8 @@ function assetUrl(path) {
 
     poseName() {
       if (this.mode === "sleep") return "sleep";
-      const tex = this.sheep.texture && this.sheep.texture.key;
+      const texRaw = this.sheep.texture && this.sheep.texture.key;
+      const tex = texRaw && String(texRaw).replace(/^_c_/, "");
       const anims = this.sheep.anims;
       const playing = !!(anims && anims.isPlaying);
       if (playing) {
@@ -492,15 +751,17 @@ function assetUrl(path) {
     wear(id) {
       this.sheep.costumeId = id || null;
       const tex = COSTUME_TEX[id];
-      if (tex && this.textures.exists(tex)) this.costume.setTexture(tex);
+      const live = tex && liveKey(tex);
+      if (live && this.textures.exists(live)) this.costume.setTexture(live);
+      else if (tex && this.textures.exists(tex)) this.costume.setTexture(tex);
       this.layoutWear();
     }
 
     wearCollar(id) {
       this.sheep.collarId = id || null;
-      if (id === "collar" && this.textures.exists("costume_collar")) {
-        this.collar.setTexture("costume_collar");
-      }
+      const live = liveKey("costume_collar");
+      if (id === "collar" && this.textures.exists(live)) this.collar.setTexture(live);
+      else if (id === "collar" && this.textures.exists("costume_collar")) this.collar.setTexture("costume_collar");
       this.layoutWear();
     }
 
@@ -513,7 +774,7 @@ function assetUrl(path) {
     showAnim(key) {
       this.sheep.stop();
       if (key === "walk") this.sheep.play("walk");
-      else this.sheep.setTexture(key);
+      else this.sheep.setTexture(this.textures.exists(liveKey(key)) ? liveKey(key) : key);
     }
 
     walkTo(fx, fy, then) {
@@ -1066,8 +1327,9 @@ function assetUrl(path) {
       const hpx = (size && size[1] ? size[1] : 36) * scale * mul;
       img.style.height = hpx + "px";
       img.style.width = "auto";
-      // +6px sit: HTML box sits the brim a hair high vs the Phaser crop.
-      img.style.bottom = ((-oy * scale) - 6) + "px";
+      // Hats sit a hair high in the HTML box vs the Phaser crop; the collar should not.
+      const fudge = (img === collarImg) ? 0 : 6;
+      img.style.bottom = ((-oy * scale) - fudge) + "px";
       img.style.left = "50%";
       img.style.transform = "translateX(calc(-50% + " + (ox * scale) + "px))";
     }
@@ -1075,13 +1337,13 @@ function assetUrl(path) {
       const n = COSTUME_NUDGE[pet.costume] || { x: 0, y: 0 };
       const mul = COSTUME_SCALE[pet.costume] == null ? 1.08 : COSTUME_SCALE[pet.costume];
       place(hatImg, head.x + n.x, head.y + n.y, mul,
-        assetUrl("assets/" + COSTUME_TEX[pet.costume] + ".png"), COSTUME_SIZE[pet.costume]);
+        costumeDataUrl(pet.costume), COSTUME_SIZE[pet.costume]);
     } else if (hatImg) {
       place(hatImg, 0, 0, 1, null);
     }
     if (pet && pet.collar === "collar" && collarImg) {
       place(collarImg, neck.x, neck.y, 1,
-        assetUrl("assets/costume_collar.png"), COSTUME_SIZE.collar);
+        costumeDataUrl("collar"), COSTUME_SIZE.collar);
     } else if (collarImg) {
       place(collarImg, 0, 0, 1, null);
     }
@@ -1092,23 +1354,33 @@ function assetUrl(path) {
     if (!root) { if (onDone) onDone(); return; }
     const hint = $("bathHint");
     const fill = $("bathFill");
+    const label = $("bathLabel");
     const wrap = $("bathSheepWrap");
     const fx = $("bathFx");
     const btnRinse = $("bathRinse");
     const btnDry = $("bathDry");
     const sheepImg = $("bathSheep");
-    let clean = 0;
-    let phase = "scrub"; // scrub | rinse | dry | done
+    const actor = $("bathActor") || wrap;
+    let soap = 0, clean = 0, dry = 0;
+    let phase = "scrub";
     const bubbles = [];
     let finished = false;
+    let lastTouch = Date.now();
+    let helpTimer = 0;
+    let autoTimer = 0;
 
     function setHint(msg) { if (hint) hint.textContent = msg; }
-    function setMeter() {
-      if (fill) fill.style.width = Math.max(0, Math.min(100, clean)) + "%";
+    function setMeter(v) {
+      if (fill) fill.style.width = Math.max(0, Math.min(100, v)) + "%";
     }
+    function setLabel(msg) { if (label) label.textContent = msg; }
     function show(el, on) {
       if (!el) return;
       el.classList.toggle("hidden", !on);
+    }
+    function setSheepPose(pose) {
+      if (!sheepImg) return;
+      sheepImg.src = sheepDataUrl(pose);
     }
     function sizeCanvas() {
       if (!fx || !wrap) return;
@@ -1125,6 +1397,7 @@ function assetUrl(path) {
       ctx.clearRect(0, 0, fx.width, fx.height);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       for (const b of bubbles) {
+        if (b.a <= 0) continue;
         ctx.beginPath();
         ctx.arc(b.x * dpr, b.y * dpr, b.r * dpr, 0, Math.PI * 2);
         ctx.fillStyle = "rgba(255,255,255," + b.a + ")";
@@ -1138,108 +1411,200 @@ function assetUrl(path) {
         ctx.fill();
       }
     }
-
     function addBubble(x, y) {
       const rect = wrap.getBoundingClientRect();
-      bubbles.push({
-        x: x - rect.left,
-        y: y - rect.top,
-        r: 6 + Math.random() * 12,
-        a: 0.75,
-      });
+      bubbles.push({ x: x - rect.left, y: y - rect.top, r: 6 + Math.random() * 12, a: 0.75 });
       if (bubbles.length > 40) bubbles.shift();
       draw();
     }
-
+    function fxAt(cls, x, y, lingerMs) {
+      const el = document.createElement("div");
+      el.className = cls;
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+      if (lingerMs && lingerMs > 800) el.style.animationDuration = lingerMs + "ms";
+      wrap.appendChild(el);
+      setTimeout(() => el.remove(), lingerMs || 800);
+    }
+    function clearFx(sel) {
+      if (!wrap) return;
+      wrap.querySelectorAll(sel || ".drop, .steam-puff, .spot-sparkle").forEach((el) => el.remove());
+    }
+    function popBubble(b) {
+      if (!b || b.a <= 0) return;
+      b.a = 0;
+      fxAt("drop", b.x, b.y);
+      fxAt("spot-sparkle", b.x, b.y);
+      blip("sparkle");
+    }
     function finish() {
       if (finished) return;
       finished = true;
+      clearInterval(helpTimer);
+      clearTimeout(autoTimer);
       document.body.classList.remove("bathing");
       root.classList.add("hidden");
+      wrap.style.cursor = "";
       wrap.removeEventListener("pointerdown", onPtr);
       wrap.removeEventListener("pointermove", onPtr);
       wrap.removeEventListener("pointerup", onUp);
       if (onDone) onDone();
     }
+    function setCursor(file, hx, hy) {
+      try {
+        wrap.style.cursor = 'url("' + assetUrl("assets/" + file) + '") ' + hx + ' ' + hy + ', pointer';
+      } catch (e) { wrap.style.cursor = "pointer"; }
+    }
+
+    function startRinse() {
+      if (phase === "rinse" || phase === "dry" || finished) return;
+      phase = "rinse";
+      show(btnRinse, false);
+      setHint("Rinse the soap 🚿");
+      setLabel("💧 Clean");
+      setMeter(clean);
+      if (fill) fill.style.background = "linear-gradient(90deg, #8ec8e8, #b7e3a0)";
+      setCursor("rinse_cursor.png", 24, 30);
+      if (actor) actor.classList.add("wet");
+      clearFx(".steam-puff");
+      blip("splash");
+      lastTouch = Date.now();
+    }
+    function startDry() {
+      if (phase === "dry" || finished) return;
+      phase = "dry";
+      show(btnDry, false);
+      show(btnRinse, false);
+      bubbles.forEach((b) => { b.a = 0; });
+      draw();
+      clearFx(".drop, .spot-sparkle");
+      setHint("Dry the wool 🌬️");
+      setLabel("☁️ Dry");
+      setMeter(dry);
+      if (fill) fill.style.background = "linear-gradient(90deg, #f7efe0, #f3d291)";
+      setCursor("dry_cursor.png", 40, 20);
+      lastTouch = Date.now();
+    }
+    function finishDry() {
+      if (finished) return;
+      dry = 100;
+      setMeter(100);
+      setHint("All done ✨");
+      setSheepPose("happy");
+      dressPreview(sheepImg, $("bathHat"), $("bathCollar"));
+      if (actor) {
+        actor.classList.remove("wet");
+        actor.classList.add("shake", "fluffy");
+        setTimeout(() => actor.classList.remove("shake"), 700);
+      }
+      clearFx(".drop, .spot-sparkle");
+      wrap.classList.add("sparkle");
+      const r = wrap.getBoundingClientRect();
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => fxAt("steam-puff", r.width * (0.3 + Math.random() * 0.4), r.height * (0.25 + Math.random() * 0.4)), i * 80);
+      }
+      blip("unlock");
+      if (!openBathMini._hold) setTimeout(finish, 1200);
+    }
 
     function onPtr(e) {
-      if (phase !== "scrub") return;
+      if (finished) return;
       if (e.type === "pointermove" && !e.buttons) return;
       e.preventDefault();
-      addBubble(e.clientX, e.clientY);
-      clean = Math.min(80, clean + (e.buttons || e.pressure || 1) * 1.8);
-      setMeter();
-      if (clean >= 60) {
-        show(btnRinse, true);
-        setHint("Nice! Now rinse");
+      lastTouch = Date.now();
+      const rect = wrap.getBoundingClientRect();
+      const x = (e.clientX || 0) - rect.left;
+      const y = (e.clientY || 0) - rect.top;
+      if (phase === "scrub") {
+        addBubble(e.clientX, e.clientY);
+        soap = Math.min(80, soap + (e.buttons || e.pressure || 1) * 1.8);
+        setMeter(soap);
+        if (soap >= 60) {
+          show(btnRinse, true);
+          setHint("Nice! Now rinse");
+          if (!autoTimer) autoTimer = setTimeout(startRinse, 1800);
+        }
+        return;
+      }
+      if (phase === "rinse") {
+        fxAt("drop", x, y);
+        let hit = false;
+        for (const b of bubbles) {
+          if (b.a <= 0) continue;
+          if (Math.hypot(x - b.x, y - b.y) < b.r + 22) { popBubble(b); hit = true; }
+        }
+        clean = Math.min(100, clean + (hit ? 8 : 3));
+        setMeter(clean);
+        draw();
+        if (clean >= 100 && bubbles.every((b) => b.a <= 0)) {
+          show(btnDry, true);
+          setHint("Nice! Now dry");
+          if (autoTimer) clearTimeout(autoTimer);
+          autoTimer = setTimeout(startDry, 1600);
+        }
+        return;
+      }
+      if (phase === "dry") {
+        fxAt("steam-puff", x, y);
+        dry = Math.min(100, dry + 4);
+        setMeter(dry);
+        if (dry >= 55 && actor) actor.classList.remove("wet");
+        if (dry >= 100) finishDry();
       }
     }
     function onUp() {}
 
-    btnRinse.onclick = () => {
-      if (phase !== "scrub") return;
-      phase = "rinse";
-      show(btnRinse, false);
-      setHint("Rinse 🚿");
-      blip("splash");
-      // bubbles float away, meter fills
-      const start = performance.now();
-      function step(now) {
-        const t = (now - start) / 900;
-        for (const b of bubbles) {
-          b.y -= 1.6;
-          b.a = Math.max(0, 0.75 * (1 - t));
-        }
-        clean = Math.min(100, clean + 2);
-        setMeter();
-        draw();
-        if (t < 1) requestAnimationFrame(step);
-        else {
-          bubbles.length = 0;
-          draw();
-          clean = 100;
-          setMeter();
-          phase = "dry";
-          show(btnDry, true);
-          setHint("Dry off");
-        }
+    function seedBubbles(n) {
+      if (!wrap) return;
+      const r = wrap.getBoundingClientRect();
+      for (let i = 0; i < (n || 10); i++) {
+        bubbles.push({
+          x: r.width * (0.28 + Math.random() * 0.44),
+          y: r.height * (0.28 + Math.random() * 0.36),
+          r: 7 + Math.random() * 13,
+          a: 0.72 + Math.random() * 0.2,
+        });
       }
-      requestAnimationFrame(step);
+      draw();
+    }
+    function seedFx(cls, n, ms) {
+      if (!wrap) return;
+      const r = wrap.getBoundingClientRect();
+      for (let i = 0; i < (n || 6); i++) {
+        fxAt(cls, r.width * (0.22 + Math.random() * 0.56), r.height * (0.22 + Math.random() * 0.5), ms);
+      }
+    }
+    openBathMini._api = {
+      startRinse, startDry, finishDry,
+      phase: () => phase,
+      setClean: (v) => { clean = Math.max(0, Math.min(100, v)); if (phase === "rinse") setMeter(clean); },
+      setDry: (v) => {
+        dry = Math.max(0, Math.min(100, v));
+        if (phase === "dry") setMeter(dry);
+        if (dry >= 55 && actor) actor.classList.remove("wet");
+      },
+      seedBubbles, seedFx,
+      hold: (on) => { openBathMini._hold = !!on; },
     };
 
-    btnDry.onclick = () => {
-      if (phase !== "dry") return;
-      phase = "done";
-      show(btnDry, false);
-      setHint("All done ✨");
-      if (sheepImg) {
-        sheepImg.src = assetUrl("assets/sheep_happy.png");
-        dressPreview(sheepImg, $("bathHat"), $("bathCollar"));
-      }
-      if (wrap) {
-        const actor = $("bathActor") || wrap;
-        actor.classList.add("shake");
-        setTimeout(() => actor.classList.remove("shake"), 700);
-      }
-      wrap.classList.add("sparkle");
-      blip("unlock");
-      setTimeout(finish, 800);
-    };
+    btnRinse.onclick = () => { if (phase === "scrub") startRinse(); };
+    btnDry.onclick = () => { if (phase === "rinse" || phase === "dry") startDry(); };
 
-    clean = 0;
+    openBathMini._hold = false;
+    soap = 0; clean = 0; dry = 0;
     phase = "scrub";
     bubbles.length = 0;
-    setMeter();
+    setMeter(0);
+    setLabel("🧼 Soap");
     setHint("Scrub the wool 🧼");
+    if (fill) fill.style.background = "linear-gradient(90deg, #c8e8f6, #9fd4f0)";
     show(btnRinse, false);
     show(btnDry, false);
-    if (sheepImg) {
-      sheepImg.src = assetUrl("assets/sheep_idle.png");
-      sheepImg.classList.remove("shake");
-    }
-    const actor = $("bathActor");
-    if (actor) actor.classList.remove("shake");
+    if (sheepImg) sheepImg.classList.remove("shake");
+    setSheepPose("idle");
+    if (actor) actor.classList.remove("shake", "fluffy", "wet");
     wrap.classList.remove("sparkle");
+    wrap.style.cursor = "pointer";
     root.classList.remove("hidden");
     document.body.classList.add("bathing");
     dressPreview(sheepImg, $("bathHat"), $("bathCollar"));
@@ -1249,16 +1614,36 @@ function assetUrl(path) {
     wrap.addEventListener("pointerdown", onPtr);
     wrap.addEventListener("pointermove", onPtr);
     wrap.addEventListener("pointerup", onUp);
-    // gentle auto help so there is no fail / stuck state
     clearInterval(openBathMini._help);
-    openBathMini._help = setInterval(() => {
-      if (phase !== "scrub") { clearInterval(openBathMini._help); return; }
-      if (clean < 60) {
-        clean = Math.min(60, clean + 3);
-        setMeter();
-        if (clean >= 60) { show(btnRinse, true); setHint("Nice! Now rinse"); }
+    helpTimer = openBathMini._help = setInterval(() => {
+      if (finished) { clearInterval(helpTimer); return; }
+      if (Date.now() - lastTouch < 2500) return;
+      if (phase === "scrub") {
+        soap = Math.min(60, soap + 4);
+        setMeter(soap);
+        if (soap >= 60) {
+          show(btnRinse, true);
+          setHint("Nice! Now rinse");
+          if (!autoTimer) autoTimer = setTimeout(startRinse, 1800);
+        }
+      } else if (phase === "rinse") {
+        const left = bubbles.filter((b) => b.a > 0);
+        if (left.length) popBubble(left[0]);
+        clean = Math.min(100, clean + 8);
+        setMeter(clean);
+        draw();
+        if (clean >= 100 && bubbles.every((b) => b.a <= 0)) {
+          show(btnDry, true);
+          setHint("Nice! Now dry");
+          if (autoTimer) clearTimeout(autoTimer);
+          autoTimer = setTimeout(startDry, 1600);
+        }
+      } else if (phase === "dry") {
+        dry = Math.min(100, dry + 8);
+        setMeter(dry);
+        if (dry >= 100) finishDry();
       }
-    }, 700);
+    }, 800);
   }
 
   function openBrushMini(onDone) {
@@ -1313,7 +1698,7 @@ function assetUrl(path) {
       fluff = 100;
       setMeter();
       setHint("So fluffy!");
-      if (sheepImg) sheepImg.src = assetUrl("assets/sheep_happy.png");
+      if (sheepImg) sheepImg.src = sheepDataUrl("happy");
       dressPreview(sheepImg, $("brushHat"), $("brushCollar"));
       if (actor) {
         actor.classList.add("shake");
@@ -1419,7 +1804,7 @@ function assetUrl(path) {
     setMeter();
     setHint("Brush the burrs");
     if (sheepImg) {
-      sheepImg.src = assetUrl("assets/sheep_idle.png");
+      sheepImg.src = sheepDataUrl("idle");
       sheepImg.classList.remove("shake");
     }
     if (actor) actor.classList.remove("shake", "fluffy");
@@ -1480,6 +1865,14 @@ function assetUrl(path) {
     try {
       $("adoptBtn").disabled = true;
       state = await MyPetApi.adopt(name, "sheep_valais", "field");
+      if (state && state.pet) {
+        state.pet.wool = (window._adoptPick && _adoptPick.wool) || "white";
+        state.pet.face = (window._adoptPick && _adoptPick.face) || "black";
+        state.pet.eyes = (window._adoptPick && _adoptPick.eyes) || "white";
+        state.pet.costumeColors = {};
+        if (window.MyPetColor) MyPetColor.migratePet(state.pet);
+        persistStaticPet();
+      }
       $("adopt").classList.add("hidden");
       startGame();
       toast("Welcome, " + state.pet.name + " 💗");
@@ -1510,7 +1903,24 @@ function assetUrl(path) {
       game, get pasture() { return pasture; }, get state() { return state; },
       toast, doCare, renderHud, addHearts: addTestHearts,
       openBath: openBathMini,
+      startBathRinse: () => openBathMini._api && openBathMini._api.startRinse(),
+      startBathDry: () => openBathMini._api && openBathMini._api.startDry(),
+      finishBathDry: () => openBathMini._api && openBathMini._api.finishDry(),
+      bathApi: () => openBathMini._api,
       openBrush: openBrushMini,
+      setPetColors: (wool, face, eyes) => {
+        if (!state || !state.pet) return;
+        if (wool) state.pet.wool = wool;
+        if (face) state.pet.face = face;
+        if (eyes) state.pet.eyes = eyes;
+        if (window.MyPetColor) MyPetColor.migratePet(state.pet);
+        persistStaticPet();
+        applyPetLook();
+        renderLooks();
+        refreshAdoptPreview();
+      },
+      setCostumeColor,
+      applyPetLook,
       catchButterfly: () => pasture && pasture.catchNearestButterfly && pasture.catchNearestButterfly(),
       spawnButterflies: () => pasture && pasture.spawnButterflies && pasture.spawnButterflies(),
       setBusy: (v) => { busy = !!v; },
@@ -1555,13 +1965,60 @@ function assetUrl(path) {
       return;
     }
     $("boot").classList.add("hidden");
+    mergePet(state && state.pet);
     grantStaticUnlocks();
+    preloadColorImages(() => {
+      if (state && state.pet) applyPetLook();
+      refreshAdoptPreview();
+      renderLooks();
+    });
+    bindAdoptColors();
     if (!state.pet) {
       $("adopt").classList.remove("hidden");
       $("nameInput").focus();
+      refreshAdoptPreview();
     } else {
       startGame();
     }
+  }
+
+  window._adoptPick = { wool: "white", face: "black", eyes: "white" };
+
+  function makeSwatches(el, order, names, pal, current, onPick) {
+    if (!el) return;
+    el.innerHTML = "";
+    order.forEach((id) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "swatch" + (current === id ? " on" : "");
+      btn.title = names[id] || id;
+      btn.setAttribute("aria-label", names[id] || id);
+      const entry = pal[id];
+      btn.style.background = (entry && entry.hex) || "#eee";
+      btn.addEventListener("click", () => onPick(id));
+      el.appendChild(btn);
+    });
+  }
+  function bindAdoptColors() {
+    if (!window.MyPetColor) return;
+    const pick = window._adoptPick;
+    const draw = () => {
+      makeSwatches($("woolSwatches"), MyPetColor.WOOL_ORDER, MyPetColor.WOOL_NAMES, MyPetColor.WOOL, pick.wool, (id) => { pick.wool = id; draw(); refreshAdoptPreview(); });
+      makeSwatches($("faceSwatches"), MyPetColor.FACE_ORDER, MyPetColor.FACE_NAMES, MyPetColor.FACE, pick.face, (id) => { pick.face = id; draw(); refreshAdoptPreview(); });
+      makeSwatches($("eyeSwatches"), MyPetColor.EYE_ORDER, MyPetColor.EYE_NAMES, MyPetColor.EYES, pick.eyes, (id) => { pick.eyes = id; draw(); refreshAdoptPreview(); });
+    };
+    draw();
+  }
+  function refreshAdoptPreview() {
+    const img = $("adoptPreview") || document.querySelector("#pickPet img");
+    if (!img || !window.MyPetColor) return;
+    const pose = COLOR_IMG["sheep_idle.png"];
+    if (!pose || !pose.naturalWidth) {
+      loadColorImg("sheep_idle.png", refreshAdoptPreview);
+      return;
+    }
+    const pick = window._adoptPick || { wool: "white", face: "black", eyes: "white" };
+    img.src = MyPetColor.recolorSheepImage(pose, pick).toDataURL("image/png");
   }
 
   window.addEventListener("load", main);
