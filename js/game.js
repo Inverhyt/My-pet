@@ -2,7 +2,7 @@
 function assetUrl(path) {
   path = String(path || "").replace(/^\/+/, "");
   const base = (typeof window.ASSET_BASE === "string") ? window.ASSET_BASE + path : path;
-  const v = window.MYPET_ASSET_V || "8";
+  const v = window.MYPET_ASSET_V || "9";
   return base + (base.indexOf("?") >= 0 ? "&" : "?") + "v=" + v;
 }
 
@@ -141,6 +141,7 @@ function assetUrl(path) {
       data.pet.face = state.pet.face;
       data.pet.eyes = state.pet.eyes;
       data.pet.costumeColors = state.pet.costumeColors || {};
+      data.pet.fieldTheme = state.pet.fieldTheme || "meadow";
       localStorage.setItem(STATIC_SAVE, JSON.stringify(data));
       try {
         localStorage.setItem("mypet-colors-v1", JSON.stringify({
@@ -148,6 +149,9 @@ function assetUrl(path) {
           costumeColors: state.pet.costumeColors || {},
         }));
       } catch (e2) {}
+      try {
+        localStorage.setItem("mypet-world-v1", JSON.stringify({ fieldTheme: data.pet.fieldTheme }));
+      } catch (e3) {}
     } catch (e) {}
   }
 
@@ -164,6 +168,7 @@ function assetUrl(path) {
       if (!state.pet.face && old.face) state.pet.face = old.face;
       if (!state.pet.eyes && old.eyes) state.pet.eyes = old.eyes;
       if (!state.pet.costumeColors && old.costumeColors) state.pet.costumeColors = old.costumeColors;
+      if (!state.pet.fieldTheme && old.fieldTheme) state.pet.fieldTheme = old.fieldTheme;
     }
     try {
       const raw = localStorage.getItem("mypet-colors-v1");
@@ -175,6 +180,17 @@ function assetUrl(path) {
         if (!state.pet.costumeColors && c.costumeColors) state.pet.costumeColors = c.costumeColors;
       }
     } catch (e) {}
+    try {
+      const rawW = localStorage.getItem("mypet-world-v1");
+      if (rawW) {
+        const w = JSON.parse(rawW);
+        if (!state.pet.fieldTheme && w.fieldTheme) state.pet.fieldTheme = w.fieldTheme;
+      }
+    } catch (e) {}
+    if (window.MyPetWorld && window.MyPetWorld.forced && window.MyPetWorld.forced.field) {
+      state.pet.fieldTheme = window.MyPetWorld.forced.field;
+    }
+    if (!state.pet.fieldTheme) state.pet.fieldTheme = "meadow";
     if (window.MyPetColor) MyPetColor.migratePet(state.pet);
     persistStaticPet();
   }
@@ -346,6 +362,56 @@ function assetUrl(path) {
     $("hearts").textContent = "💗 " + state.pet.friendship;
     $("coinMark").textContent = state.coin_today ? "🪙 today" : "🪙";
     $("coinMark").title = state.coin_today ? "You already got today's coin" : "Care once today for 1 coin";
+    updateMood();
+  }
+
+  function updateMood() {
+    const el = $("petMood");
+    if (!el) return;
+    const asleep = pasture && pasture.mode === "sleep";
+    if (asleep) el.textContent = "😴 Sleepy";
+    else el.textContent = "😊 Happy";
+  }
+
+  function currentFieldId() {
+    if (window.MyPetWorld && MyPetWorld.forced && MyPetWorld.forced.field) return MyPetWorld.forced.field;
+    const id = state && state.pet && state.pet.fieldTheme;
+    if (window.MyPetWorld && MyPetWorld.FIELD_IDS.indexOf(id) >= 0) return id;
+    return "meadow";
+  }
+
+  function applySky(cycle) {
+    if (!window.MyPetWorld) return;
+    cycle = cycle || MyPetWorld.nowCycle();
+    const body = document.body;
+    ["dawn", "day", "sunset", "night"].forEach((p) => body.classList.remove("sky-" + p));
+    body.classList.add("sky-" + cycle.phase);
+    body.style.setProperty("--sky", cycle.sky);
+    if (cycle.phase === "sunset") {
+      body.style.background = "linear-gradient(180deg, " + cycle.sky2 + " 0%, " + cycle.sky + " 70%)";
+    } else {
+      body.style.background = cycle.sky;
+    }
+    const meta = document.querySelector("meta[name='theme-color']");
+    if (meta) meta.setAttribute("content", cycle.sky);
+    const skyIcon = $("skyIcon");
+    if (skyIcon) skyIcon.src = assetUrl("assets/" + cycle.skyIcon);
+    const wxIcon = $("wxIcon");
+    if (wxIcon) {
+      if (cycle.weatherIcon) {
+        wxIcon.src = assetUrl("assets/" + cycle.weatherIcon);
+        wxIcon.classList.remove("hidden");
+      } else {
+        wxIcon.removeAttribute("src");
+        wxIcon.classList.add("hidden");
+      }
+    }
+    const chip = $("skyChip");
+    if (chip) chip.title = cycle.label + (cycle.weather !== "clear" ? " · " + cycle.weatherLabel : "");
+    if (pasture && pasture.cameras && pasture.cameras.main) {
+      pasture.cameras.main.setBackgroundColor(cycle.sky);
+    }
+    updateMood();
   }
 
   async function addTestHearts(n) {
@@ -558,7 +624,12 @@ function assetUrl(path) {
     preload() {
       const A = (typeof assetUrl === "function") ? (name) => assetUrl("assets/" + name) : (name) => "/assets/" + name;
       const img = (key, file) => this.load.image(key, A(file));
-      img("field", "field.png");
+      img("field", "field_meadow.png");
+      if (window.MyPetWorld) {
+        MyPetWorld.FIELDS.forEach((f) => img("field_" + f.id, f.file));
+      }
+      img("wx_drop", "wx_drop.png");
+      img("wx_flake", "wx_flake.png");
       img("idle", "sheep_idle.png");
       img("walk1", "sheep_walk1.png");
       img("walk2", "sheep_walk2.png");
@@ -610,8 +681,18 @@ function assetUrl(path) {
       this.fieldX = (W - FIELD * scale) / 2;
       this.fieldY = top + (availH - FIELD * scale) / 2;
 
-      this.field = this.add.image(this.fieldX, this.fieldY, "field").setOrigin(0, 0).setScale(scale);
+      const fieldKey = this.textures.exists("field_" + currentFieldId()) ? ("field_" + currentFieldId()) : "field";
+      this.field = this.add.image(this.fieldX, this.fieldY, fieldKey).setOrigin(0, 0).setScale(scale);
       this.field.setInteractive();
+      this.skyTint = this.add.rectangle(this.fieldX, this.fieldY, FIELD * scale, FIELD * scale, 0x152044, 0).setOrigin(0, 0).setDepth(8000);
+      this.stars = [];
+      this.wxGfx = this.add.graphics().setDepth(8010);
+      this.rainbow = this.add.graphics().setDepth(3);
+      this.drops = [];
+      this.flakes = [];
+      this.ripples = [];
+      this._wx = "clear";
+      this._phase = "day";
 
       this.sheep = this.add.sprite(0, 0, this.textures.exists(liveKey("idle")) ? liveKey("idle") : "idle").setOrigin(0.5, 1).setScale(scale);
       this.sheep.playX = 0.5;
@@ -643,6 +724,8 @@ function assetUrl(path) {
       this.time.addEvent({ delay: 18000, loop: true, callback: () => this.spawnButterflies() });
       this.time.delayedCall(4000, () => this.spawnButterflies());
       this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.layoutWear, this);
+      this.applyWorld(true);
+      this.time.addEvent({ delay: 1000, loop: true, callback: () => this.applyWorld(false) });
 
       this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, "Tap the trough, water, hay, or a flower", {
         fontFamily: "Nunito, sans-serif", fontSize: "16px", color: "#4a3426",
@@ -797,21 +880,247 @@ function assetUrl(path) {
       else this.goIdle();
     }
 
+    interruptNight() {
+      this._wantNightSleep = false;
+      if (this._bedWalk) {
+        this.target = null;
+        this.onArrive = null;
+        this._bedWalk = false;
+      }
+      if (this.mode === "sleep") this.wakeGently();
+    }
+    wakeGently() {
+      this.stopZzz();
+      this._nightSleep = false;
+      this.mode = "idle";
+      this.showAnim("idle");
+      this.layoutWear();
+      updateMood();
+    }
+    startNightSleep() {
+      if (busy || this.mode === "sleep") return;
+      if (!window.MyPetWorld || !MyPetWorld.isNight()) return;
+      this._wantNightSleep = false;
+      this._bedWalk = true;
+      const s = SPOTS.bed;
+      this.walkTo(s.stand.x, s.stand.y, () => {
+        this._bedWalk = false;
+        if (busy || !MyPetWorld.isNight()) { this.goIdle(); return; }
+        const dest = this.toWorld(s.sleep.x, s.sleep.y + 8);
+        this.tweens.add({
+          targets: this.sheep, x: dest.x, y: dest.y, duration: 400,
+          onUpdate: () => this.layoutWear(),
+          onComplete: () => {
+            if (busy || !MyPetWorld.isNight()) { this.goIdle(); return; }
+            this.mode = "sleep";
+            this._nightSleep = true;
+            this.sheep.angle = 0;
+            this.showAnim("sleep");
+            this.layoutWear();
+            this.startZzz();
+            updateMood();
+          },
+        });
+      });
+    }
+    startZzz() {
+      this.stopZzz();
+      const puff = () => {
+        if (!this.sheep || this.mode !== "sleep") return;
+        this.floatSprite("zzz", this.sheep.x + 16 + Math.random() * 18, this.sheep.y - 82 - Math.random() * 18, 1600);
+      };
+      puff();
+      this._zzzEv = this.time.addEvent({ delay: 1700, loop: true, callback: puff });
+    }
+    stopZzz() {
+      if (this._zzzEv) { this._zzzEv.remove(false); this._zzzEv = null; }
+    }
+    setFieldTheme(id) {
+      const key = "field_" + id;
+      if (this.textures.exists(key) && this.field) this.field.setTexture(key);
+    }
+    applyWorld(force) {
+      if (!window.MyPetWorld) return;
+      const cycle = MyPetWorld.nowCycle();
+      applySky(cycle);
+      if (this.skyTint) {
+        this.skyTint.setFillStyle(cycle.tint, cycle.tintAlpha);
+        this.skyTint.setVisible(cycle.tintAlpha > 0.01);
+      }
+      if (force || cycle.phase !== this._phase) {
+        this._phase = cycle.phase;
+        this.rebuildStars(cycle.phase === "night");
+        if (cycle.phase !== "night" && this._nightSleep && this.mode === "sleep" && !busy) {
+          this.wakeGently();
+          this.goIdle();
+        }
+      }
+      if (force || cycle.weather !== this._wx) {
+        this._wx = cycle.weather;
+        this.rebuildWeather(cycle.weather);
+      }
+      if (cycle.phase === "night" && this.mode === "idle" && !busy && !this._wantNightSleep && !this.target) {
+        this._wantNightSleep = true;
+        this.idleAt = Math.min(this.idleAt || 0, this.time.now + 2000);
+      }
+    }
+    rebuildStars(on) {
+      (this.stars || []).forEach((s) => { if (s && s.destroy) s.destroy(); });
+      this.stars = [];
+      if (!on) return;
+      const s = this.fScale;
+      const rng = (n) => {
+        let x = Math.sin(n * 127.1 + 311.7) * 43758.5;
+        return x - Math.floor(x);
+      };
+      for (let i = 0; i < 26; i++) {
+        const u = rng(i + 1), v = rng(i + 17);
+        // Place in the margins around the fence, including the transparent field border.
+        let fx, fy;
+        const band = u < 0.5;
+        if (v < 0.25) { fx = 20 + u * 980; fy = 10 + band * 50; }
+        else if (v < 0.5) { fx = 20 + u * 980; fy = 960 + band * 50; }
+        else if (v < 0.75) { fx = 8 + band * 40; fy = 80 + u * 860; }
+        else { fx = 976 + band * 40; fy = 80 + u * 860; }
+        const p = this.toWorld(fx, fy);
+        const sz = (rng(i + 31) < 0.7 ? 2 : 3) * (s / 0.65);
+        const st = this.add.rectangle(p.x, p.y, sz, sz, 0xfff6d0, 0.7 + rng(i + 9) * 0.3).setDepth(2);
+        this.tweens.add({
+          targets: st, alpha: 0.25, duration: 800 + rng(i + 4) * 1400,
+          yoyo: true, repeat: -1, delay: rng(i + 21) * 800,
+        });
+        this.stars.push(st);
+      }
+    }
+    rebuildWeather(kind) {
+      (this.drops || []).forEach((d) => { if (d && d.destroy) d.destroy(); });
+      (this.flakes || []).forEach((d) => { if (d && d.destroy) d.destroy(); });
+      this.drops = []; this.flakes = []; this.ripples = [];
+      if (this.wxGfx) this.wxGfx.clear();
+      if (this.rainbow) this.rainbow.clear();
+      const s = this.fScale;
+      if (kind === "rainbow") this.drawRainbow();
+      if (kind === "rain") {
+        for (let i = 0; i < 26; i++) this.drops.push(this.spawnDrop(true));
+      }
+      if (kind === "snow") {
+        for (let i = 0; i < 22; i++) this.flakes.push(this.spawnFlake(true));
+      }
+    }
+    drawRainbow() {
+      if (!this.rainbow) return;
+      this.rainbow.clear();
+      const s = this.fScale;
+      const cx = this.fieldX + FIELD * s * 0.5;
+      const cy = this.fieldY + FIELD * s * 0.46;
+      const cols = [0xe45a5a, 0xf0a028, 0xf0d848, 0x5aaa5a, 0x5a8ad0];
+      const lw = Math.max(4, 7 * s);
+      cols.forEach((c, i) => {
+        this.rainbow.lineStyle(lw, c, 0.8);
+        this.rainbow.beginPath();
+        this.rainbow.arc(cx, cy, (240 - i * (lw + 1)) * s, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(340), false);
+        this.rainbow.strokePath();
+      });
+    }
+    spawnDrop(randomY) {
+      const s = this.fScale;
+      const key = this.textures.exists("wx_drop") ? "wx_drop" : "sparkle";
+      const p = this.toWorld(140 + Math.random() * 740, randomY ? (160 + Math.random() * 700) : 120);
+      const d = this.add.image(p.x, p.y, key).setScale(s * 2.8).setDepth(8012).setAlpha(0.95);
+      d._vy = (0.22 + Math.random() * 0.12) * s;
+      return d;
+    }
+    spawnFlake(randomY) {
+      const s = this.fScale;
+      const key = this.textures.exists("wx_flake") ? "wx_flake" : "sparkle";
+      const p = this.toWorld(140 + Math.random() * 740, randomY ? (160 + Math.random() * 700) : 120);
+      const d = this.add.image(p.x, p.y, key).setScale(s * (2.2 + Math.random() * 0.8)).setDepth(8012).setAlpha(0.98);
+      d._vy = (0.05 + Math.random() * 0.05) * s;
+      d._vx = (Math.random() - 0.5) * 0.06 * s;
+      d._w = Math.random() * Math.PI * 2;
+      return d;
+    }
+    tickWeather(dt) {
+      const s = this.fScale;
+      const top = this.fieldY + 80 * s;
+      const bot = this.fieldY + 940 * s;
+      const left = this.fieldX + 80 * s;
+      const right = this.fieldX + 944 * s;
+      if (this._wx === "rain") {
+        for (let i = 0; i < this.drops.length; i++) {
+          const d = this.drops[i];
+          if (!d || !d.active) { this.drops[i] = this.spawnDrop(false); continue; }
+          d.y += d._vy * dt;
+          if (d.y > bot) {
+            if (Math.random() < 0.22) this.addRipple(d.x, bot - 20 * s);
+            d.x = left + Math.random() * (right - left);
+            d.y = top;
+          }
+        }
+      }
+      if (this._wx === "snow") {
+        for (let i = 0; i < this.flakes.length; i++) {
+          const d = this.flakes[i];
+          if (!d || !d.active) { this.flakes[i] = this.spawnFlake(false); continue; }
+          d._w += dt * 0.002;
+          d.y += d._vy * dt;
+          d.x += d._vx * dt + Math.sin(d._w) * 0.04 * s * dt * 0.05;
+          if (d.y > bot) { d.x = left + Math.random() * (right - left); d.y = top; }
+        }
+      }
+      if (this.ripples && this.ripples.length && this.wxGfx) {
+        this.wxGfx.clear();
+        const next = [];
+        for (const r of this.ripples) {
+          r.r += dt * 0.025 * s;
+          r.a -= dt * 0.0008;
+          if (r.a <= 0) continue;
+          this.wxGfx.lineStyle(2, 0x7eb7d8, Math.min(0.85, r.a + 0.15));
+          this.wxGfx.strokeCircle(r.x, r.y, r.r);
+          next.push(r);
+        }
+        this.ripples = next;
+      }
+    }
+    addRipple(x, y) {
+      if (this.ripples.length >= 5) this.ripples.shift();
+      this.ripples.push({ x, y, r: 3, a: 0.55 });
+    }
     goIdle() {
       this.mode = "idle";
       this.showAnim("idle");
       this.blanket.setVisible(false);
-      this.idleAt = this.time.now + 7000 + Math.random() * 6000;
+      this.stopZzz();
+      this._nightSleep = false;
+      if (window.MyPetWorld && MyPetWorld.isNight()) {
+        this._wantNightSleep = true;
+        this.idleAt = this.time.now + 7000 + Math.random() * 5000;
+      } else {
+        this._wantNightSleep = false;
+        this.idleAt = this.time.now + 7000 + Math.random() * 6000;
+      }
       this.layoutWear();
+      updateMood();
     }
 
     onTap(pointer) {
-      if (busy || this.mode === "sleep") return;
+      if (busy) return;
       if ($("looks").classList.contains("hidden") === false) return;
       if ($("friend").classList.contains("hidden") === false) return;
       if ($("bath") && $("bath").classList.contains("hidden") === false) return;
       if ($("brush") && $("brush").classList.contains("hidden") === false) return;
       const f = this.toField(pointer.worldX, pointer.worldY);
+      if (this.mode === "sleep") {
+        const bed = SPOTS.bed;
+        const onBed = Math.hypot(f.x - bed.x, f.y - bed.y) <= bed.r;
+        if (onBed && !this.overSheep(pointer)) {
+          this.floatSprite("zzz", this.sheep.x + 20, this.sheep.y - 86, 1400);
+          return;
+        }
+        this.interruptNight();
+      } else if (this._wantNightSleep || this._bedWalk) {
+        this.interruptNight();
+      }
       if (brushMode) {
         if (this.overSheep(pointer)) this.sparkleAt(pointer.worldX, pointer.worldY);
         return;
@@ -902,10 +1211,18 @@ function assetUrl(path) {
           blip("nap");
           toast("Night night 😴");
           doCare("nap").catch(() => {});
-          this.time.delayedCall(3400, () => {
-            this.goIdle();
+          const stay = !!(window.MyPetWorld && MyPetWorld.isNight());
+          if (stay) {
+            this._nightSleep = true;
+            this.startZzz();
             busy = false;
-          });
+            updateMood();
+          } else {
+            this.time.delayedCall(3400, () => {
+              this.goIdle();
+              busy = false;
+            });
+          }
         },
       });
     }
@@ -944,6 +1261,7 @@ function assetUrl(path) {
     }
 
     startBrush() {
+      this.interruptNight();
       if (busy) return;
       busy = true;
       openBrushMini(() => {
@@ -969,6 +1287,7 @@ function assetUrl(path) {
     }
 
     startBath() {
+      this.interruptNight();
       if (busy) return;
       busy = true;
       const s = SPOTS.basin;
@@ -1005,6 +1324,7 @@ function assetUrl(path) {
     }
 
     playPark(kind) {
+      this.interruptNight();
       if (busy) return;
       busy = true;
       if (kind === "hop") this.doHop();
@@ -1085,6 +1405,7 @@ function assetUrl(path) {
     }
 
     startTreat() {
+      this.interruptNight();
       if (busy) return;
       busy = true;
       const f = this.toField(this.sheep.x, this.sheep.y);
@@ -1107,6 +1428,7 @@ function assetUrl(path) {
     }
 
     takePhoto() {
+      this.interruptNight();
       toast("Say cheese 📷");
       this.game.renderer.snapshot((img) => {
         const a = document.createElement("a");
@@ -1304,9 +1626,14 @@ function assetUrl(path) {
           this.layoutWear();
         }
       } else if (this.mode === "idle" && this.time.now > this.idleAt) {
-        this.idleAt = this.time.now + 9000 + Math.random() * 8000;
-        this.idleMood();
+        if (this._wantNightSleep && window.MyPetWorld && MyPetWorld.isNight() && !busy) {
+          this.startNightSleep();
+        } else {
+          this.idleAt = this.time.now + 9000 + Math.random() * 8000;
+          this.idleMood();
+        }
       }
+      this.tickWeather(dt);
     }
   }
 
@@ -1830,9 +2157,45 @@ function assetUrl(path) {
     grantStaticUnlocks();
     renderHud();
     renderLooks();
+    showLooksTab("looks");
     $("looks").classList.remove("hidden");
   }
   function closeLooks() { $("looks").classList.add("hidden"); }
+  function showLooksTab(which) {
+    const looks = which !== "field";
+    const tabLooks = $("tabLooks");
+    const tabField = $("tabField");
+    const paneLooks = $("looksPane");
+    const paneField = $("fieldPane");
+    if (tabLooks) tabLooks.classList.toggle("on", looks);
+    if (tabField) tabField.classList.toggle("on", !looks);
+    if (paneLooks) paneLooks.classList.toggle("hidden", !looks);
+    if (paneField) paneField.classList.toggle("hidden", looks);
+    if (!looks) renderFieldPicker();
+  }
+  function renderFieldPicker() {
+    const grid = $("fieldGrid");
+    if (!grid || !window.MyPetWorld) return;
+    const cur = currentFieldId();
+    grid.innerHTML = "";
+    MyPetWorld.FIELDS.forEach((f) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "field-pick" + (f.id === cur ? " on" : "");
+      btn.innerHTML = '<img alt="" src="' + assetUrl("assets/" + f.thumb) + '"><span class="name">' + f.emoji + " " + f.name + "</span>";
+      btn.addEventListener("click", () => setFieldTheme(f.id));
+      grid.appendChild(btn);
+    });
+  }
+  function setFieldTheme(id) {
+    if (!state || !state.pet || !window.MyPetWorld) return;
+    if (MyPetWorld.FIELD_IDS.indexOf(id) < 0) return;
+    state.pet.fieldTheme = id;
+    persistStaticPet();
+    if (pasture && pasture.setFieldTheme) pasture.setFieldTheme(id);
+    renderFieldPicker();
+    blip("click");
+  }
   function openFriend() { $("friend").classList.remove("hidden"); }
   function closeFriend() { $("friend").classList.add("hidden"); }
 
@@ -1850,6 +2213,12 @@ function assetUrl(path) {
       else if (act === "friend") openFriend();
     });
     $("looksClose").addEventListener("click", closeLooks);
+    const tabLooks = $("tabLooks");
+    const tabField = $("tabField");
+    if (tabLooks && tabField) {
+      tabLooks.addEventListener("click", () => showLooksTab("looks"));
+      tabField.addEventListener("click", () => showLooksTab("field"));
+    }
     $("friendClose").addEventListener("click", closeFriend);
     const testBtn = $("testBtn");
     if (testBtn) {
@@ -1886,6 +2255,7 @@ function assetUrl(path) {
   function startGame() {
     $("hud").classList.remove("hidden");
     $("boot").classList.add("hidden");
+    applySky();
     renderHud();
     if (game) return;
     game = new Phaser.Game({
@@ -1893,7 +2263,7 @@ function assetUrl(path) {
       parent: "game",
       width: W,
       height: H,
-      backgroundColor: "#f4efe4",
+      backgroundColor: "#c5dff2",
       pixelArt: true,
       antialias: false,
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
@@ -1949,6 +2319,18 @@ function assetUrl(path) {
       wearCollar: (id) => { if (pasture) pasture.wearCollar(id); },
       setCollar,
       openLooks,
+      setPhase: (t) => {
+        if (window.MyPetWorld) MyPetWorld.setForced({ t: t || null });
+        applySky();
+        if (pasture && pasture.applyWorld) pasture.applyWorld(true);
+      },
+      setWeather: (w) => {
+        if (window.MyPetWorld) MyPetWorld.setForced({ w: w || null });
+        applySky();
+        if (pasture && pasture.applyWorld) pasture.applyWorld(true);
+      },
+      setField: (id) => setFieldTheme(id),
+      applyWorld: () => { applySky(); if (pasture && pasture.applyWorld) pasture.applyWorld(true); },
     };
   }
 
@@ -1966,6 +2348,7 @@ function assetUrl(path) {
     }
     $("boot").classList.add("hidden");
     mergePet(state && state.pet);
+    applySky();
     grantStaticUnlocks();
     preloadColorImages(() => {
       if (state && state.pet) applyPetLook();
