@@ -101,9 +101,37 @@ function assetUrl(path) {
     prop_pond: { rx: 102, ry: 46 },
     prop_bamboo: { rx: 16, ry: 14 },
     prop_reeds: { rx: 16, ry: 14 },
+    capy_reeds: { rx: 42, ry: 30 },
+    capy_bed: { rx: 62, ry: 36 },
     hay_bale: { rx: 68, ry: 36 },
     slide: { rx: 78, ry: 48 },
     tunnel: { rx: 72, ry: 40 },
+  };
+
+  const FIELD_LAYOUTS = {
+    meadow: {
+      spots: SPOTS,
+      park: true,
+      pool: null,
+      beach: null,
+      oranges: null,
+      start: { x: 512, y: 560 },
+    },
+    capy_spa: {
+      spots: {
+        trough: { x: 317, y: 322, r: 70, stand: { x: 317, y: 396 }, action: "eat", label: "eat" },
+        bed: { x: 756, y: 311, r: 78, stand: { x: 756, y: 377 }, sleep: { x: 756, y: 319 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: { cx: 508, cy: 696, rx: 327, ry: 126 },
+      beach: { x: 517, y: 551, rx: 182, ry: 28 },
+      rockPad: { rx: 34, ry: 32 },
+      oranges: [
+        { x: 490, y: 746 }, { x: 248, y: 634 }, { x: 379, y: 757 },
+        { x: 645, y: 688 }, { x: 356, y: 646 },
+      ],
+      start: { x: 508, y: 501 },
+    },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -268,7 +296,8 @@ function assetUrl(path) {
       state.pet.fieldTheme = window.MyPetWorld.forced.field;
     }
     if (!state.pet.fieldTheme) state.pet.fieldTheme = "meadow";
-    if (window.MyPetWorld && MyPetWorld.FIELD_IDS.indexOf(state.pet.fieldTheme) < 0) state.pet.fieldTheme = "meadow";
+    if (window.MyPetWorld && MyPetWorld.clampFieldId) state.pet.fieldTheme = MyPetWorld.clampFieldId(state.pet.fieldTheme, state.pet);
+    else if (window.MyPetWorld && MyPetWorld.FIELD_IDS.indexOf(state.pet.fieldTheme) < 0) state.pet.fieldTheme = "meadow";
     if (window.MyPetColor) MyPetColor.migratePet(state.pet);
     if (window.MyPetRoster) MyPetRoster.normalizePet(state.pet);
     syncActivePet();
@@ -381,6 +410,7 @@ function assetUrl(path) {
     posePrefixes().forEach((pre) => {
       SHEEP_KEYS.forEach((k) => speciesFiles.push(pre + "_" + k + ".png"));
     });
+    ["swim1", "swim2", "swim3", "swim4"].forEach((k) => speciesFiles.push("capy_" + k + ".png"));
     const files = speciesFiles.concat([
       "costume_crown.png", "costume_bow.png", "costume_hat.png", "costume_witch.png", "costume_collar.png",
     ]);
@@ -396,9 +426,11 @@ function assetUrl(path) {
     if (!sc._baseImgs) sc._baseImgs = {};
     if (sc._baseSpecies !== spId) {
       sc._baseSpecies = spId;
-      SHEEP_KEYS.forEach((k) => {
+      const lookKeys = SHEEP_KEYS.slice();
+      if (prefix === "capy") ["swim1", "swim2", "swim3", "swim4"].forEach((k) => lookKeys.push(k));
+      lookKeys.forEach((k) => {
         const texKey = prefix + "_" + k;
-        const tex = sc.textures.exists(texKey) ? sc.textures.get(texKey) : sc.textures.get(k);
+        const tex = sc.textures.exists(texKey) ? sc.textures.get(texKey) : (sc.textures.exists(k) ? sc.textures.get(k) : null);
         if (tex && tex.getSourceImage) {
           const src = tex.getSourceImage();
           const c = document.createElement("canvas");
@@ -438,7 +470,9 @@ function assetUrl(path) {
       }
     }
     if (window.MyPetColor) {
-      SHEEP_KEYS.forEach((k) => {
+      const paintKeys = SHEEP_KEYS.slice();
+      if (prefix === "capy") ["swim1", "swim2", "swim3", "swim4"].forEach((k) => paintKeys.push(k));
+      paintKeys.forEach((k) => {
         const base = sc._baseImgs[k];
         if (base) paint(k, recolorPet(base, petColors()));
       });
@@ -452,6 +486,9 @@ function assetUrl(path) {
       const raw = String(sc.sheep.texture && sc.sheep.texture.key || "idle").replace(/^_c_/, "");
       if (raw === "walk" || raw.indexOf("walk") === 0) {
         if (sc.sheep.anims) sc.sheep.play("walk");
+      } else if (raw === "swim" || raw.indexOf("swim") >= 0) {
+        if (sc.sheep.anims && sc.refreshSwimAnim) { sc.refreshSwimAnim(); sc.sheep.play("swim"); }
+        else if (sc.textures.exists(liveKey(raw))) sc.sheep.setTexture(liveKey(raw));
       } else if (sc.textures.exists(liveKey(raw))) {
         sc.sheep.setTexture(liveKey(raw));
       }
@@ -527,14 +564,35 @@ function assetUrl(path) {
     else el.textContent = "😊 Happy";
   }
 
+  function allowedFieldIds(pet) {
+    if (window.MyPetWorld && MyPetWorld.allowedFieldIds) return MyPetWorld.allowedFieldIds(pet || (state && state.pet));
+    return ["meadow"];
+  }
   function currentFieldId() {
-    const allowed = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"];
+    const allowed = allowedFieldIds();
     if (window.MyPetWorld && MyPetWorld.forced && MyPetWorld.forced.field && allowed.indexOf(MyPetWorld.forced.field) >= 0) {
       return MyPetWorld.forced.field;
     }
     const sp = currentSpecies && currentSpecies();
     const id = (state && state.pet && state.pet.fieldTheme) || (sp && (sp.field || sp.defaultField)) || "meadow";
-    return allowed.indexOf(id) >= 0 ? id : "meadow";
+    if (window.MyPetWorld && MyPetWorld.clampFieldId) return MyPetWorld.clampFieldId(id, state && state.pet);
+    return allowed.indexOf(id) >= 0 ? id : (allowed[0] || "meadow");
+  }
+  function fieldLayout() {
+    const id = currentFieldId();
+    return FIELD_LAYOUTS[id] || FIELD_LAYOUTS.meadow;
+  }
+  function fieldSpots() {
+    const L = fieldLayout();
+    return (L && L.spots) || SPOTS;
+  }
+  function inEllipse(x, y, e, padX, padY) {
+    if (!e) return false;
+    const rx = e.rx + (padX || 0), ry = e.ry + (padY == null ? (padX || 0) : padY);
+    if (rx <= 0 || ry <= 0) return false;
+    const nx = (x - (e.cx != null ? e.cx : e.x)) / rx;
+    const ny = (y - (e.cy != null ? e.cy : e.y)) / ry;
+    return nx * nx + ny * ny <= 1;
   }
 
   function applySky(cycle) {
@@ -997,6 +1055,8 @@ function assetUrl(path) {
       img("tunnel", "tunnel.png");
       img("party_hat", "party_hat.png");
       img("bunting", "bunting.png");
+      img("orange", "orange.png");
+      ["swim1", "swim2", "swim3", "swim4"].forEach((k) => img("capy_" + k, "capy_" + k + ".png"));
     }
 
     create() {
@@ -1036,7 +1096,8 @@ function assetUrl(path) {
       this.collar = this.add.image(0, 0, this.textures.exists(liveKey("costume_collar")) ? liveKey("costume_collar") : "costume_collar").setOrigin(0.5, 1).setScale(scale).setVisible(false);
       this.partyHat = this.add.image(0, 0, "party_hat").setOrigin(0.5, 1).setScale(scale).setVisible(false);
 
-      const start = this.toWorld(512, 560);
+      const startPt = (fieldLayout() && fieldLayout().start) || { x: 512, y: 560 };
+      const start = this.toWorld(startPt.x, startPt.y);
       this.place(start.x, start.y);
       this.mode = "idle";
       this.target = null;
@@ -1049,6 +1110,7 @@ function assetUrl(path) {
       this.placePark();
       this.placeCareItems();
       this.placeHomeDecor();
+      this.applyFieldLayout();
 
       this.field.on("pointerdown", (p) => this.onTap(p));
       this.input.addPointer(2);
@@ -1066,7 +1128,10 @@ function assetUrl(path) {
       this.applyWorld(true);
       this.time.addEvent({ delay: 1000, loop: true, callback: () => this.applyWorld(false) });
 
-      this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, "Tap the food, water, bed, or a flower", {
+      const hintMsg = currentFieldId() === "capy_spa"
+        ? "Tap the reeds, the bed, or a floating orange"
+        : "Tap the food, water, bed, or a flower";
+      this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, hintMsg, {
         fontFamily: "Nunito, sans-serif", fontSize: "16px", color: "#4a3426",
         backgroundColor: "#fffaf3cc", padding: { x: 8, y: 4 },
       }).setOrigin(0.5, 0).setDepth(20);
@@ -1104,6 +1169,12 @@ function assetUrl(path) {
         this.sheep.y = this.footY;
         return;
       }
+      if (this.inPoolFeet && this.inPoolFeet()) {
+        this.sheep.setScale(s, s);
+        this.sheep.x = this.footX;
+        this.sheep.y = this.footY + Math.sin(this.time.now / 280) * 1.6 * s;
+        return;
+      }
       const wave = Math.abs(Math.sin(this.time.now / 140));
       const hop = (sp && sp.hop) ? wave * 8 * s : wave * 2.2 * s;
       this.sheep.setScale(s * (1 + wave * 0.04), s * (1 - wave * 0.05));
@@ -1120,11 +1191,16 @@ function assetUrl(path) {
       if (playing) {
         const frame = anims.currentFrame;
         const frameKey = frame && (frame.textureKey || (frame.frame && frame.frame.textureKey));
-        if (frameKey && HEAD[frameKey]) return frameKey;
+        if (frameKey && (HEAD[frameKey] || /swim/.test(String(frameKey)))) {
+          const raw = String(frameKey).replace(/^_c_/, "").replace(/^capy_/, "");
+          return raw;
+        }
+        if (anims.currentAnim && anims.currentAnim.key === "swim") return "swim";
         if (this.mode === "walk" || (anims.currentAnim && anims.currentAnim.key === "walk")) return "walk";
       }
       if (tex && HEAD[tex]) return tex;
       if (this.mode === "walk") return "walk";
+      if (this.mode === "swim" || (tex && String(tex).indexOf("swim") >= 0)) return "swim";
       if (tex && String(tex).indexOf("walk") === 0) return "walk";
       return "idle";
     }
@@ -1224,6 +1300,7 @@ function assetUrl(path) {
       }
       const baseY = this.footY != null ? this.footY : this.sheep.y;
       this.sheep.setDepth(this._depthLock != null ? this._depthLock : baseY);
+      this.layoutCarriedOranges && this.layoutCarriedOranges();
     }
 
     wear(id) {
@@ -1262,13 +1339,76 @@ function assetUrl(path) {
       });
     }
 
+    hasSwim() {
+      const sp = currentSpecies();
+      return !!(sp && sp.prefix === "capy" && (this.textures.exists(liveKey("swim1")) || this.textures.exists("capy_swim1")));
+    }
+
+    swimFrameKey(k) {
+      if (this.textures.exists(liveKey(k))) return liveKey(k);
+      if (this.textures.exists("capy_" + k)) return "capy_" + k;
+      return k;
+    }
+
+    refreshSwimAnim() {
+      if (this.anims.exists("swim")) this.anims.remove("swim");
+      const keys = ["swim1", "swim2", "swim3", "swim4"].map((k) => this.swimFrameKey(k));
+      this.anims.create({
+        key: "swim",
+        frames: keys.map((k) => ({ key: k, duration: 160 })),
+        repeat: -1,
+      });
+    }
+
     showAnim(key) {
       this.sheep.stop();
       if (key === "walk") {
         this.refreshWalkAnim();
         this.sheep.play("walk");
+      } else if (key === "swim") {
+        this.refreshSwimAnim();
+        this.sheep.play("swim");
       } else {
         this.sheep.setTexture(this.textures.exists(liveKey(key)) ? liveKey(key) : key);
+      }
+    }
+
+    inPoolAt(fx, fy) {
+      const L = fieldLayout();
+      return !!(L && L.pool && inEllipse(fx, fy, L.pool, -2, -2));
+    }
+    inBeachAt(fx, fy) {
+      const L = fieldLayout();
+      return !!(L && L.beach && inEllipse(fx, fy, L.beach, 8, 10));
+    }
+    inPoolFeet() {
+      if (!this.sheep) return false;
+      const f = (this.footX != null) ? this.toField(this.footX, this.footY) : this.toField(this.sheep.x, this.sheep.y);
+      return this.inPoolAt(f.x, f.y);
+    }
+    onSpaRock(fx, fy) {
+      const L = fieldLayout();
+      if (!L || !L.pool) return false;
+      if (this.inPoolAt(fx, fy) || this.inBeachAt(fx, fy)) return false;
+      const pad = L.rockPad || { rx: 34, ry: 32 };
+      return inEllipse(fx, fy, L.pool, pad.rx, pad.ry);
+    }
+    locoAnim() {
+      return (this.hasSwim() && this.inPoolFeet()) ? "swim" : "walk";
+    }
+    syncLocomotion() {
+      if (!this.sheep) return;
+      const wantSwim = this.hasSwim() && this.inPoolFeet();
+      const nowPool = wantSwim;
+      if (this._wasInPool && !nowPool) this.dropOranges();
+      this._wasInPool = nowPool;
+      const playing = this.sheep.anims && this.sheep.anims.currentAnim && this.sheep.anims.currentAnim.key;
+      if (this.mode === "walk" || this.target) {
+        const want = this.locoAnim();
+        if (playing !== want) this.showAnim(want);
+      } else if (this.mode === "idle" && !busy) {
+        if (wantSwim && playing !== "swim") this.showAnim("swim");
+        else if (!wantSwim && playing === "swim") this.showAnim("idle");
       }
     }
 
@@ -1284,7 +1424,7 @@ function assetUrl(path) {
       this.onArrive = then || null;
       this.mode = "walk";
       this.setFacing(p.x - this.footX);
-      this.showAnim("walk");
+      this.showAnim(this.locoAnim());
     }
 
     clamp(x) { return Phaser.Math.Clamp(x, WALK.x0, WALK.x1); }
@@ -1300,13 +1440,22 @@ function assetUrl(path) {
         const fp = this.footprintOf(key);
         this.blockers.push({ id: id, fx: fx, fy: fy, rx: fp.rx, ry: fp.ry, key: key });
       };
-      // Standard meadow care props (baked into field_meadow.png).
-      if (SPOTS.basin) add("care-water", SPOTS.basin.x, SPOTS.basin.y, "item_basin");
-      if (SPOTS.trough) add("care-food", SPOTS.trough.x, SPOTS.trough.y, "item_hay_trough");
-      if (SPOTS.bed) add("care-bed", SPOTS.bed.x, SPOTS.bed.y, "item_hay_bed");
-      add("park-hay", PARK.hay.x, PARK.hay.y, "hay_bale");
-      add("park-slide", PARK.slide.x, PARK.slide.y, "slide");
-      add("park-tunnel", PARK.tunnel.x, PARK.tunnel.y, "tunnel");
+      const L = fieldLayout();
+      const spots = fieldSpots();
+      if (L && !L.pool) {
+        // Standard meadow care props (baked into field_meadow.png).
+        if (spots.basin) add("care-water", spots.basin.x, spots.basin.y, "item_basin");
+        if (spots.trough) add("care-food", spots.trough.x, spots.trough.y, "item_hay_trough");
+        if (spots.bed) add("care-bed", spots.bed.x, spots.bed.y, "item_hay_bed");
+      } else {
+        if (spots.trough) add("care-food", spots.trough.x, spots.trough.y, "capy_reeds");
+        if (spots.bed) add("care-bed", spots.bed.x, spots.bed.y, "capy_bed");
+      }
+      if (L && L.park) {
+        add("park-hay", PARK.hay.x, PARK.hay.y, "hay_bale");
+        add("park-slide", PARK.slide.x, PARK.slide.y, "slide");
+        add("park-tunnel", PARK.tunnel.x, PARK.tunnel.y, "tunnel");
+      }
     }
 
     hitsBlocker(fx, fy) {
@@ -1317,6 +1466,16 @@ function assetUrl(path) {
         const nx = (fx - b.fx) / (b.rx + pad), ny = (fy - b.fy) / (b.ry + pad);
         if (nx * nx + ny * ny >= 1) continue;
         return b;
+      }
+      if (this.onSpaRock && this.onSpaRock(fx, fy)) {
+        const p = fieldLayout().pool;
+        const ang = Math.atan2(fy - p.cy, fx - p.cx);
+        return {
+          id: "spa-rocks",
+          fx: p.cx + Math.cos(ang) * p.rx,
+          fy: p.cy + Math.sin(ang) * p.ry,
+          rx: 22, ry: 18, key: "rocks",
+        };
       }
       return null;
     }
@@ -1521,7 +1680,8 @@ function assetUrl(path) {
       if (!window.MyPetWorld || !MyPetWorld.isNight()) return;
       this._wantNightSleep = false;
       this._bedWalk = true;
-      const s = SPOTS.bed;
+      const s = fieldSpots().bed;
+      if (!s) return;
       this.walkTo(s.stand.x, s.stand.y, () => {
         this._bedWalk = false;
         if (busy || !MyPetWorld.isNight()) { this.goIdle(); return; }
@@ -1588,6 +1748,149 @@ function assetUrl(path) {
     setFieldTheme(id) {
       const key = "field_" + id;
       if (this.textures.exists(key) && this.field) this.field.setTexture(key);
+      this.applyFieldLayout();
+    }
+
+    applyFieldLayout() {
+      const L = fieldLayout();
+      const showPark = !!(L && L.park);
+      if (this.parkSprites) {
+        Object.keys(this.parkSprites).forEach((k) => {
+          const spr = this.parkSprites[k];
+          if (spr && spr.setVisible) spr.setVisible(showPark);
+        });
+      }
+      this.placeOranges();
+      this.rebuildBlockers();
+      this._wasInPool = this.inPoolFeet && this.inPoolFeet();
+      if (!this._wasInPool) this.dropOranges(true);
+      this.syncLocomotion && this.syncLocomotion();
+    }
+
+    placeOranges() {
+      (this.oranges || []).forEach((o) => { if (o && o.destroy) o.destroy(); });
+      this.oranges = [];
+      const L = fieldLayout();
+      if (!L || !L.oranges || !this.textures.exists("orange")) return;
+      const s = this.fScale || 1;
+      L.oranges.forEach((h, i) => {
+        const p = this.toWorld(h.x, h.y);
+        const spr = this.add.image(p.x, p.y, "orange").setScale(s * 2.6).setDepth(p.y + 2);
+        spr._home = { x: h.x, y: h.y };
+        spr._carried = false;
+        spr._phase = i * 1.15;
+        spr._bob0 = p.y;
+        this.oranges.push(spr);
+      });
+    }
+
+    tickOranges() {
+      const s = this.fScale || 1;
+      (this.oranges || []).forEach((o) => {
+        if (!o || !o.active || o._carried || o._returning) return;
+        o.y = o._bob0 + Math.sin(this.time.now / 900 + o._phase) * 5 * s;
+      });
+      this.layoutCarriedOranges();
+    }
+
+    layoutCarriedOranges() {
+      if (!this.sheep) return;
+      const s = this.fScale || 1;
+      const face = this.sheep.flipX ? -1 : 1;
+      const carried = (this.oranges || []).filter((o) => o && o._carried);
+      carried.forEach((o, i) => {
+        o.x = this.sheep.x + face * (-20 - i * 12) * s;
+        o.y = this.sheep.y - (42 + (i % 2) * 8) * s;
+        o.setDepth((this.footY != null ? this.footY : this.sheep.y) + 4);
+        o.setFlipX(!!this.sheep.flipX);
+      });
+    }
+
+    tryOrangeTap(f, pointer) {
+      const list = this.oranges || [];
+      if (!list.length) return false;
+      let best = null, bestD = 42;
+      list.forEach((o) => {
+        if (!o || !o.active || o._carried || o._returning) return;
+        const of = this.toField(o.x, o.y);
+        const d = Math.hypot(f.x - of.x, f.y - of.y);
+        if (d < bestD) { bestD = d; best = o; }
+      });
+      if (!best) return false;
+      this.collectOrange(best);
+      return true;
+    }
+
+    collectOrange(o) {
+      if (!o || o._carried || busy) return;
+      const of = this.toField(o.x, o.y);
+      const feet = (this.footX != null) ? this.toField(this.footX, this.footY) : of;
+      const go = () => this.hopOrangeOn(o);
+      if (Math.hypot(feet.x - of.x, feet.y - of.y) < 55) go();
+      else {
+        busy = true;
+        this.interruptNight();
+        this.walkTo(of.x, of.y, () => { busy = false; go(); });
+      }
+    }
+
+    hopOrangeOn(o) {
+      if (!o || o._carried) return;
+      const s = this.fScale || 1;
+      this.tweens.killTweensOf(o);
+      o._returning = false;
+      const destX = this.sheep.x;
+      const destY = this.sheep.y - 48 * s;
+      this.tweens.add({
+        targets: o,
+        x: destX,
+        y: destY - 18 * s,
+        duration: 180,
+        ease: "Sine.easeOut",
+        onComplete: () => {
+          this.tweens.add({
+            targets: o, x: destX, y: destY, duration: 140,
+            onComplete: () => {
+              o._carried = true;
+              this.layoutCarriedOranges();
+              blip("coin");
+              toast("🍊");
+            },
+          });
+        },
+      });
+    }
+
+    dropOranges(instant) {
+      const s = this.fScale || 1;
+      (this.oranges || []).forEach((o) => {
+        if (!o || !o.active || !o._carried) return;
+        o._carried = false;
+        o._returning = true;
+        this.tweens.killTweensOf(o);
+        const dest = this.toWorld(o._home.x, o._home.y);
+        const land = () => {
+          o.x = dest.x; o.y = dest.y;
+          o._bob0 = dest.y;
+          o._returning = false;
+          o.setDepth(dest.y + 2);
+          o.setFlipX(false);
+        };
+        if (instant) { land(); return; }
+        this.tweens.add({
+          targets: o,
+          x: (o.x + dest.x) / 2,
+          y: Math.min(o.y, dest.y) - 40 * s,
+          duration: 220,
+          ease: "Sine.easeOut",
+          onComplete: () => {
+            this.tweens.add({
+              targets: o, x: dest.x, y: dest.y, duration: 280, ease: "Sine.easeIn",
+              onComplete: land,
+            });
+          },
+        });
+      });
     }
     applyWorld(force) {
       if (!window.MyPetWorld) return;
@@ -1827,7 +2130,7 @@ function assetUrl(path) {
     goIdle() {
       this.mode = "idle";
       this.resetWalkPose();
-      this.showAnim("idle");
+      this.showAnim((this.hasSwim && this.hasSwim() && this.inPoolFeet()) ? "swim" : "idle");
       this.blanket.setVisible(false);
       this.stopZzz();
       this._nightSleep = false;
@@ -1839,7 +2142,8 @@ function assetUrl(path) {
         this.idleAt = this.time.now + 7000 + Math.random() * 6000;
       }
       this.layoutWear();
-      this.tickMood();
+      if (!(this.inPoolFeet && this.inPoolFeet())) this.tickMood();
+      this.syncLocomotion && this.syncLocomotion();
       updateMood();
     }
 
@@ -1850,18 +2154,21 @@ function assetUrl(path) {
       if ($("brush") && $("brush").classList.contains("hidden") === false) return;
       if (this.tryRainbowTap(pointer.worldX, pointer.worldY)) return;
       const f = this.toField(pointer.worldX, pointer.worldY);
-      const onHay = Math.hypot(f.x - PARK.hay.x, f.y - PARK.hay.y) <= PARK.hay.r;
-      const feet = (this.footX != null) ? this.toField(this.footX, this.footY) : f;
-      const sheepOnHay = Math.hypot(feet.x - PARK.hay.x, feet.y - PARK.hay.y) <= PARK.hay.r + 24;
-      if (onHay || (this.overSheep(pointer) && (sheepOnHay || this._hopping))) {
-        this.interruptNight();
-        this.playPark("hop");
-        return;
+      const L0 = fieldLayout();
+      if (L0 && L0.park) {
+        const onHay = Math.hypot(f.x - PARK.hay.x, f.y - PARK.hay.y) <= PARK.hay.r;
+        const feet = (this.footX != null) ? this.toField(this.footX, this.footY) : f;
+        const sheepOnHay = Math.hypot(feet.x - PARK.hay.x, feet.y - PARK.hay.y) <= PARK.hay.r + 24;
+        if (onHay || (this.overSheep(pointer) && (sheepOnHay || this._hopping))) {
+          this.interruptNight();
+          this.playPark("hop");
+          return;
+        }
       }
       if (busy) return;
       if (this.mode === "sleep") {
-        const bed = SPOTS.bed;
-        const onBed = Math.hypot(f.x - bed.x, f.y - bed.y) <= bed.r;
+        const bed = fieldSpots().bed;
+        const onBed = !!(bed && Math.hypot(f.x - bed.x, f.y - bed.y) <= bed.r);
         if (onBed && !this.overSheep(pointer)) {
           this.floatSprite("zzz", this.sheep.x + 20, this.sheep.y - 86, 1400);
           return;
@@ -1879,14 +2186,20 @@ function assetUrl(path) {
         this.petSheep();
         return;
       }
-      for (const [id, s] of Object.entries(SPOTS)) {
+      if (this.tryOrangeTap(f, pointer)) return;
+      for (const [id, s] of Object.entries(fieldSpots())) {
+        if (!s) continue;
         const d = Math.hypot(f.x - s.x, f.y - s.y);
         if (d <= s.r) { this.useSpot(id, s); return; }
       }
-      for (const [id, s] of Object.entries(PARK)) {
-        if (Math.hypot(f.x - s.x, f.y - s.y) <= s.r) { this.playPark(s.kind); return; }
+      const Ltap = fieldLayout();
+      if (Ltap && Ltap.park) {
+        for (const [id, s] of Object.entries(PARK)) {
+          if (Math.hypot(f.x - s.x, f.y - s.y) <= s.r) { this.playPark(s.kind); return; }
+        }
       }
-      for (const fl of FLOWERS) {
+      const flowers = (Ltap && Ltap.pool) ? FLOWERS.filter((fl) => fl.y < 520) : FLOWERS;
+      for (const fl of flowers) {
         if (Math.hypot(f.x - fl.x, f.y - fl.y) < 36) { this.giftFlower(fl); return; }
       }
     }
@@ -2039,9 +2352,8 @@ function assetUrl(path) {
       this.interruptNight();
       if (busy) return;
       busy = true;
-      const s = SPOTS.basin;
-      this.walkTo(s.stand.x, s.stand.y, () => {
-        this.showAnim("idle");
+      const openMini = () => {
+        this.showAnim(this.hasSwim() && this.inPoolFeet() ? "swim" : "idle");
         this.layoutWear();
         openBathMini(() => {
           doCare("bath").catch(() => {});
@@ -2052,24 +2364,64 @@ function assetUrl(path) {
           this.goIdle();
           busy = false;
         });
-      });
+      };
+      const spots = fieldSpots();
+      if (spots.basin) {
+        this.walkTo(spots.basin.stand.x, spots.basin.stand.y, openMini);
+      } else if (this.inPoolFeet()) {
+        openMini();
+      } else {
+        const L = fieldLayout();
+        const shore = (L && L.beach) || (L && L.start) || { x: 512, y: 520 };
+        this.walkTo(shore.x, shore.y, openMini);
+      }
     }
 
     startPlay() {
+      const L = fieldLayout();
+      if (L && L.pool) {
+        this.playSpaSplash();
+        return;
+      }
       const kinds = ["hop", "slide", "tunnel"];
       this._playI = ((this._playI || 0) + 1) % kinds.length;
       this.playPark(kinds[this._playI]);
     }
 
+    playSpaSplash() {
+      if (busy) return;
+      const L = fieldLayout();
+      if (!L || !L.pool) return;
+      const p = L.pool;
+      const a = Math.random() * Math.PI * 2;
+      const u = 0.35 + Math.random() * 0.4;
+      const fx = p.cx + Math.cos(a) * p.rx * u;
+      const fy = p.cy + Math.sin(a) * p.ry * u;
+      busy = true;
+      this.interruptNight();
+      this.walkTo(fx, fy, () => {
+        this.showAnim(this.hasSwim() ? "swim" : "happy");
+        if (this.addRipple) {
+          this.addRipple(this.sheep.x, this.sheep.y);
+          this.addRipple(this.sheep.x + 12, this.sheep.y + 6);
+        }
+        this.heartBurst();
+        toast("Splash 💧");
+        blip("splash");
+        this.time.delayedCall(700, () => { this.goIdle(); busy = false; });
+      });
+    }
+
     placePark() {
       const s = this.fScale;
+      const show = !!(fieldLayout() && fieldLayout().park);
       this.parkSprites = {};
       const hay = this.toWorld(PARK.hay.x, PARK.hay.y);
-      this.parkSprites.hay = this.add.image(hay.x, hay.y, "hay_bale").setScale(s * 2.15).setOrigin(0.5, 1).setDepth(hay.y);
+      this.parkSprites.hay = this.add.image(hay.x, hay.y, "hay_bale").setScale(s * 2.15).setOrigin(0.5, 1).setDepth(hay.y).setVisible(show);
       const sl = this.toWorld(PARK.slide.x, PARK.slide.y);
-      this.parkSprites.slide = this.add.image(sl.x, sl.y, "slide").setScale(s * 1.85).setOrigin(0.5, 1).setDepth(sl.y + 2);
+      this.parkSprites.slide = this.add.image(sl.x, sl.y, "slide").setScale(s * 1.85).setOrigin(0.5, 1).setDepth(sl.y + 2).setVisible(show);
       const tn = this.toWorld(PARK.tunnel.x, PARK.tunnel.y);
-      this.parkSprites.tunnel = this.add.image(tn.x, tn.y, "tunnel").setScale(s * 1.85).setOrigin(0.5, 1).setDepth(tn.y + 8);
+      this.parkSprites.tunnel = this.add.image(tn.x, tn.y, "tunnel").setScale(s * 1.85).setOrigin(0.5, 1).setDepth(tn.y + 8).setVisible(show);
       this.rebuildBlockers();
     }
 
@@ -2106,6 +2458,7 @@ function assetUrl(path) {
     }
 
     playPark(kind) {
+      if (!(fieldLayout() && fieldLayout().park)) return;
       this.interruptNight();
       if (kind === "hop") {
         this.resetHop();
@@ -2395,6 +2748,10 @@ function assetUrl(path) {
 
     idleMood() {
       if (this.mode !== "idle" || busy) return;
+      if (this.inPoolFeet && this.inPoolFeet()) {
+        this.showBubble("aah~");
+        return;
+      }
       const live = (this.butterflies || []).filter((b) => b && b.active && !b._caught);
       if (live.length && Math.random() < 0.4) {
         this.catchButterfly(live[0]);
@@ -2482,11 +2839,12 @@ function assetUrl(path) {
             this.footY = ny;
             this.setFacing(dx);
             this.applyWalkMotion();
-            if (this.sheep && this.sheep.anims && this.sheep.anims.currentAnim && this.sheep.anims.currentAnim.key === "walk") {
+            if (this.sheep && this.sheep.anims && this.sheep.anims.currentAnim && (this.sheep.anims.currentAnim.key === "walk" || this.sheep.anims.currentAnim.key === "swim")) {
               const cruise = 0.12 * (this.fScale || 1);
               const spd = dt > 0 ? (step / dt) : cruise;
               this.sheep.anims.timeScale = Math.max(0.65, Math.min(1.35, spd / Math.max(0.0001, cruise)));
             }
+            this.syncLocomotion && this.syncLocomotion();
             this.layoutWear();
           }
         }
@@ -2508,6 +2866,8 @@ function assetUrl(path) {
           this.sheep.angle = Math.sin(this.time.now / 700) * 2.5;
         }
       }
+      this.syncLocomotion && this.syncLocomotion();
+      this.tickOranges && this.tickOranges();
       this.tickWeather(dt);
     }
   }
@@ -3148,8 +3508,10 @@ function assetUrl(path) {
     const grid = $("fieldGrid");
     if (!grid || !window.MyPetWorld) return;
     const cur = currentFieldId();
+    const allowed = allowedFieldIds();
     grid.innerHTML = "";
     MyPetWorld.FIELDS.forEach((f) => {
+      if (allowed.indexOf(f.id) < 0) return;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "field-pick" + (f.id === cur ? " on" : "");
@@ -3161,6 +3523,7 @@ function assetUrl(path) {
   function setFieldTheme(id, quiet) {
     if (!state || !state.pet || !window.MyPetWorld) return;
     if (MyPetWorld.FIELD_IDS.indexOf(id) < 0) return;
+    if (MyPetWorld.clampFieldId) id = MyPetWorld.clampFieldId(id, state.pet);
     state.pet.fieldTheme = id;
     persistStaticPet();
     if (pasture && pasture.setFieldTheme) pasture.setFieldTheme(id);
@@ -3395,7 +3758,8 @@ function assetUrl(path) {
     if (pasture.wear) pasture.wear(state.pet && state.pet.costume);
     if (pasture.wearCollar) pasture.wearCollar(state.pet && state.pet.collar);
     if (pasture.toWorld && pasture.place) {
-      const start = pasture.toWorld(512, 560);
+      const st = (typeof fieldLayout === "function" && fieldLayout().start) || { x: 512, y: 560 };
+      const start = pasture.toWorld(st.x, st.y);
       pasture.place(start.x, start.y);
     }
     if (pasture.sheep) {
@@ -3409,6 +3773,7 @@ function assetUrl(path) {
     applyBirthdayDecor();
     if (pasture.placeCareItems) pasture.placeCareItems();
     if (pasture.placeHomeDecor) pasture.placeHomeDecor();
+    if (pasture.applyFieldLayout) pasture.applyFieldLayout();
     if (pasture.clearMood) pasture.clearMood();
     if (pasture.applyWorld) pasture.applyWorld(true);
     applySky();
@@ -3928,6 +4293,11 @@ function assetUrl(path) {
         const p = pasture.toWorld(fx, fy);
         pasture.place(p.x, p.y);
       },
+      inPool: () => !!(pasture && pasture.inPoolFeet && pasture.inPoolFeet()),
+      oranges: () => (pasture && pasture.oranges) || [],
+      collectOrange: (i) => { if (pasture && pasture.oranges && pasture.oranges[i]) pasture.collectOrange(pasture.oranges[i]); },
+      dropOranges: (instant) => { if (pasture && pasture.dropOranges) pasture.dropOranges(instant); },
+      fieldId: () => currentFieldId(),
       openRehome,
     };
     setTimeout(() => maybeCelebrateBirthday(), 800);

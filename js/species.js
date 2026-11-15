@@ -87,6 +87,11 @@
     happy: { x: -39, y: -93 },
     sleep: { x: -24, y: -51 },
     walk:  { x: -21, y: -88 },
+    swim:  { x: -8, y: -72 },
+    swim1: { x: -10, y: -68 },
+    swim2: { x: -8, y: -74 },
+    swim3: { x: -8, y: -72 },
+    swim4: { x: -8, y: -71 },
   };
   const CAPY_NECK = {
     idle: { x: -24, y: -50 },
@@ -99,6 +104,11 @@
     happy: { x: -39, y: -55 },
     sleep: { x: -24, y: -13 },
     walk:  { x: -21, y: -48 },
+    swim:  { x: -8, y: -36 },
+    swim1: { x: -10, y: -32 },
+    swim2: { x: -8, y: -38 },
+    swim3: { x: -8, y: -36 },
+    swim4: { x: -8, y: -35 },
   };
   const CAPY_NOSE = {
     idle: { x: -48, y: -71 },
@@ -111,6 +121,11 @@
     happy: { x: -69, y: -75 },
     sleep: { x: -52, y: -33 },
     walk:  { x: -43, y: -69 },
+    swim:  { x: -28, y: -52 },
+    swim1: { x: -30, y: -48 },
+    swim2: { x: -28, y: -54 },
+    swim3: { x: -28, y: -52 },
+    swim4: { x: -28, y: -51 },
   };
 
   const ROCK_HEAD = {
@@ -410,7 +425,7 @@
   };
 
   // Per-species designed field: set `field` to a MyPetWorld.FIELDS id when that
-  // art is ready. Until then every pet uses meadow.
+  // art is ready. Capybara uses capy_spa; every other pet uses meadow.
   const SPECIES = {
     sheep_valais: {
       id: "sheep_valais",
@@ -468,8 +483,8 @@
       ],
       defaults: { wool: "sand", face: "cocoa", eyes: "white" },
       defaultItems: { water: "hottub", food: "veggie_bowl", bed: "straw_mat" },
-      defaultField: "meadow",
-      field: "meadow",
+      defaultField: "capy_spa",
+      field: "capy_spa",
       homeDecor: null,
       HEAD: CAPY_HEAD,
       NECK: CAPY_NECK,

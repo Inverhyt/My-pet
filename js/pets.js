@@ -119,8 +119,12 @@
     pet.costumeColors = pet.costumeColors || {};
     if (pet.dye && typeof pet.dye !== "object") pet.dye = {};
     const wanted = pet.fieldTheme || (sp && (sp.field || sp.defaultField)) || "meadow";
-    const allowed = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"];
-    pet.fieldTheme = allowed.indexOf(wanted) >= 0 ? wanted : "meadow";
+    if (window.MyPetWorld && MyPetWorld.clampFieldId) {
+      pet.fieldTheme = MyPetWorld.clampFieldId(wanted, pet);
+    } else {
+      const allowed = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"];
+      pet.fieldTheme = allowed.indexOf(wanted) >= 0 ? wanted : "meadow";
+    }
     if (window.MyPetSpecies) MyPetSpecies.normalizeItems(pet);
     if (!isRealDate(pet.created_at)) pet.created_at = Date.now();
     if (!(pet.birthday && isRealDate(pet.birthday))) {
@@ -271,7 +275,7 @@
       eyes: opts.eyes || def.eyes,
       costumeColors: {},
       dye: opts.dye ? JSON.parse(JSON.stringify(opts.dye)) : undefined,
-      fieldTheme: (function(){ const w = opts.fieldTheme || (sp && (sp.field || sp.defaultField)) || "meadow"; const a = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"]; return a.indexOf(w) >= 0 ? w : "meadow"; })(),
+      fieldTheme: (function(){ const w = opts.fieldTheme || (sp && (sp.field || sp.defaultField)) || "meadow"; if (window.MyPetWorld && MyPetWorld.clampFieldId) return MyPetWorld.clampFieldId(w, opts.species || (sp && sp.id)); const a = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"]; return a.indexOf(w) >= 0 ? w : "meadow"; })(),
       items: opts.items || (window.MyPetSpecies && MyPetSpecies.defaultItems({ species: opts.species })),
       created_at: Date.now(),
       birthday: opts.birthday || today,

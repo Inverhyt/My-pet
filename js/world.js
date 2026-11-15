@@ -3,11 +3,13 @@
   const CYCLE_MS = 8 * 60 * 60 * 1000; // 8 real hours = 1 game day; 3 days / 24h
   const WX_SLOT_MS = 90 * 60 * 1000;   // weather holds ~1.5 hours
 
-  // Only Meadow ships for now. Per-species designed fields hook in here later
-  // (add an entry and set species.field to that id). Use the composite
-  // field_meadow.png so this matches live GitHub Pages (bare files are not uploaded).
+  // Meadow plus the capybara's own spa. Further per-species fields hook in
+  // here later (add an entry and set species.field to that id). Use the
+  // composite field_*.png files so this matches live GitHub Pages (bare
+  // files are not uploaded).
   const FIELDS = [
     { id: "meadow", name: "Meadow",  emoji: "🌿", file: "field_meadow.png", thumb: "field_meadow_thumb.png" },
+    { id: "capy_spa", name: "Capy Spa", emoji: "🍊", file: "field_capy_spa.png", thumb: "field_capy_spa_thumb.png" },
   ];
   const FIELD_IDS = FIELDS.map((f) => f.id);
 
@@ -172,11 +174,28 @@
     return FIELDS.filter((f) => f.id === id)[0] || FIELDS[0];
   }
 
+  function allowedFieldIds(petOrId) {
+    const all = FIELD_IDS && FIELD_IDS.length ? FIELD_IDS.slice() : ["meadow"];
+    let want = "meadow";
+    if (root.MyPetSpecies) {
+      const sp = root.MyPetSpecies.of(petOrId);
+      want = (sp && (sp.field || sp.defaultField)) || "meadow";
+    }
+    if (all.indexOf(want) >= 0) return [want];
+    return all.indexOf("meadow") >= 0 ? ["meadow"] : all;
+  }
+
+  function clampFieldId(id, petOrId) {
+    const a = allowedFieldIds(petOrId);
+    if (id && a.indexOf(id) >= 0) return id;
+    return a[0] || "meadow";
+  }
+
   parseQuery();
 
   root.MyPetWorld = {
     FIELDS, FIELD_IDS, PHASES, CYCLE_MS,
-    parseQuery, setForced, nowCycle, isNight, getField, rainbowId, slotIndex,
+    parseQuery, setForced, nowCycle, isNight, getField, allowedFieldIds, clampFieldId, rainbowId, slotIndex,
     get forced() { return { t: forced.t, w: forced.w, field: forced.field }; },
   };
 })(typeof window !== "undefined" ? window : this);
