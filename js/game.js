@@ -164,6 +164,43 @@ function assetUrl(path) {
     }
   }
 
+  const RAINBOW_SAVE = "mypet-rainbow-v1";
+
+  function loadRainbowPaid() {
+    let paid = [];
+    try {
+      const raw = localStorage.getItem(RAINBOW_SAVE);
+      if (raw) {
+        const a = JSON.parse(raw);
+        if (a && Array.isArray(a.paid)) paid = a.paid.map(String);
+      }
+    } catch (e) {}
+    if (state && Array.isArray(state.rainbowPaid)) {
+      state.rainbowPaid.forEach((id) => {
+        id = String(id);
+        if (paid.indexOf(id) < 0) paid.push(id);
+      });
+    }
+    if (!state) state = {};
+    state.rainbowPaid = paid;
+    return paid;
+  }
+
+  function isRainbowPaid(id) {
+    if (!id) return false;
+    return ((state && state.rainbowPaid) || []).indexOf(String(id)) >= 0;
+  }
+
+  function markRainbowPaid(id) {
+    if (!id || !state) return;
+    if (!Array.isArray(state.rainbowPaid)) state.rainbowPaid = [];
+    id = String(id);
+    if (state.rainbowPaid.indexOf(id) < 0) state.rainbowPaid.push(id);
+    if (state.rainbowPaid.length > 80) state.rainbowPaid = state.rainbowPaid.slice(-80);
+    try { localStorage.setItem(RAINBOW_SAVE, JSON.stringify({ paid: state.rainbowPaid })); } catch (e) {}
+    persistStaticPet();
+  }
+
   function persistStaticPet() {
     if (!state) return;
     if (window.MyPetRoster && state.pet) MyPetRoster.normalizePet(state.pet);
@@ -175,6 +212,7 @@ function assetUrl(path) {
         pets: state.pets || [],
         activePet: state.activePet || 0,
         coins: typeof state.coins === "number" ? state.coins : 0,
+        rainbowPaid: Array.isArray(state.rainbowPaid) ? state.rainbowPaid : [],
       };
       if (data.pet && window.MyPetColor) MyPetColor.migratePet(data.pet);
       localStorage.setItem(STATIC_SAVE, JSON.stringify(data));
@@ -1640,6 +1678,7 @@ function assetUrl(path) {
       this.drops = []; this.flakes = []; this.ripples = [];
       if (this.wxGfx) this.wxGfx.clear();
       if (this.rainbow) this.rainbow.clear();
+      this.clearRainbowFx();
       const s = this.fScale;
       if (kind === "rainbow") this.drawRainbow();
       if (kind === "rain") {
@@ -1649,20 +1688,107 @@ function assetUrl(path) {
         for (let i = 0; i < 22; i++) this.flakes.push(this.spawnFlake(true));
       }
     }
+    clearRainbowFx() {
+      (this.rbSparks || []).forEach((sp) => { if (sp && sp.destroy) sp.destroy(); });
+      this.rbSparks = [];
+      this._rbEnds = [];
+      this._rbId = null;
+    }
+
     drawRainbow() {
       if (!this.rainbow) return;
       this.rainbow.clear();
+      this.clearRainbowFx();
       const s = this.fScale;
+      // Arc sits in the canvas sky, ends on the top of the fence — not in the grass
+      // (fence begins ~fy 123, grass ~fy 178).
+      const fenceY = this.fieldY + 130 * s;
+      const peakY = 78;
+      const height = Math.max(90, fenceY - peakY);
+      const r = height / 0.658;
       const cx = this.fieldX + FIELD * s * 0.5;
-      const cy = this.fieldY + FIELD * s * 0.46;
+      const cy = peakY + r;
+      const startA = Phaser.Math.DegToRad(200);
+      const endA = Phaser.Math.DegToRad(340);
       const cols = [0xe45a5a, 0xf0a028, 0xf0d848, 0x5aaa5a, 0x5a8ad0];
-      const lw = Math.max(4, 7 * s);
+      const lw = Math.max(5, 8 * s);
       cols.forEach((c, i) => {
-        this.rainbow.lineStyle(lw, c, 0.8);
+        this.rainbow.lineStyle(lw, c, 0.88);
         this.rainbow.beginPath();
-        this.rainbow.arc(cx, cy, (240 - i * (lw + 1)) * s, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(340), false);
+        this.rainbow.arc(cx, cy, Math.max(8, r - i * (lw + 1)), startA, endA, false);
         this.rainbow.strokePath();
       });
+      this.rainbow.setDepth(6);
+      const rEnd = r - 2 * (lw + 1);
+      this._rbEnds = [startA, endA].map((a) => ({
+        x: cx + rEnd * Math.cos(a),
+        y: cy + rEnd * Math.sin(a),
+      }));
+      this._rbPeak = { x: cx, y: peakY };
+      this._rbId = (window.MyPetWorld && MyPetWorld.rainbowId) ? MyPetWorld.rainbowId() : null;
+      this.spawnRainbowSparkles();
+    }
+
+    spawnRainbowSparkles() {
+      const s = this.fScale;
+      const key = this.textures.exists("sparkle") ? "sparkle" : "heart";
+      this.rbSparks = [];
+      (this._rbEnds || []).forEach((e, i) => {
+        const sp = this.add.image(e.x, e.y, key).setScale(s * 2.5).setDepth(7).setAlpha(0.95);
+        this.tweens.add({
+          targets: sp, alpha: 0.35, scale: s * 1.7,
+          duration: 420 + i * 90, yoyo: true, repeat: -1,
+        });
+        const sp2 = this.add.image(e.x + (i ? 10 : -10) * s, e.y - 12 * s, key)
+          .setScale(s * 1.6).setDepth(7).setAlpha(0.75);
+        this.tweens.add({
+          targets: sp2, alpha: 0.15, y: e.y - 20 * s, scale: s * 1.15,
+          duration: 560, yoyo: true, repeat: -1, delay: 100,
+        });
+        this.rbSparks.push(sp, sp2);
+      });
+    }
+
+    rainbowEndAt(wx, wy) {
+      const ends = this._rbEnds || [];
+      const hit = 46 * (this.fScale || 1);
+      for (let i = 0; i < ends.length; i++) {
+        if (Math.hypot(wx - ends[i].x, wy - ends[i].y) <= hit) return { i: i, end: ends[i] };
+      }
+      return null;
+    }
+
+    popRainbowCoin(wx, wy) {
+      const s = this.fScale || 1;
+      const t = this.add.text(wx, wy - 8, "🪙 +5", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: Math.round(22 * (s / 0.65)) + "px",
+        fontStyle: "bold",
+        color: "#5a3a1a",
+        stroke: "#fffaf3",
+        strokeThickness: 4,
+      }).setOrigin(0.5, 1).setDepth(9000);
+      this.tweens.add({
+        targets: t, y: wy - 56, alpha: 0, duration: 720, ease: "Quad.easeOut",
+        onComplete: () => t.destroy(),
+      });
+    }
+
+    tryRainbowTap(wx, wy) {
+      const hit = this.rainbowEndAt(wx, wy);
+      if (!hit) return false;
+      const id = this._rbId;
+      if (isRainbowPaid(id)) {
+        if (this.sparkleAt) this.sparkleAt(hit.end.x, hit.end.y);
+        return true;
+      }
+      state.coins = (typeof state.coins === "number" ? state.coins : 0) + 5;
+      markRainbowPaid(id);
+      this.popRainbowCoin(hit.end.x, hit.end.y);
+      toast("+5 coins 🪙");
+      if (typeof blip === "function") blip("coin");
+      renderHud();
+      return true;
     }
     spawnDrop(randomY) {
       const s = this.fScale;
@@ -1752,6 +1878,7 @@ function assetUrl(path) {
       if ($("friend").classList.contains("hidden") === false) return;
       if ($("bath") && $("bath").classList.contains("hidden") === false) return;
       if ($("brush") && $("brush").classList.contains("hidden") === false) return;
+      if (this.tryRainbowTap(pointer.worldX, pointer.worldY)) return;
       const f = this.toField(pointer.worldX, pointer.worldY);
       const onHay = Math.hypot(f.x - PARK.hay.x, f.y - PARK.hay.y) <= PARK.hay.r;
       const feet = (this.footX != null) ? this.toField(this.footX, this.footY) : f;
@@ -3838,6 +3965,7 @@ function assetUrl(path) {
         await MyPetDiscord.boot();
       }
       state = await MyPetApi.me();
+      loadRainbowPaid();
     } catch (err) {
       $("boot").innerHTML = "<div class='boot-card'>Could not sign in.<br><small>" +
         String((err && err.message) || err) + "</small></div>";

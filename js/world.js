@@ -156,7 +156,12 @@
       weather,
       weatherIcon: WX_ICON[weather] || null,
       weatherLabel: WX_LABEL[weather] || "Clear",
+      rainbowId: "rb-" + slotIndex(date),
     };
+  }
+
+  function rainbowId(date) {
+    return "rb-" + slotIndex(date);
   }
 
   function isNight(cycle) {
@@ -172,7 +177,7 @@
 
   root.MyPetWorld = {
     FIELDS, FIELD_IDS, PHASES, CYCLE_MS,
-    parseQuery, setForced, nowCycle, isNight, getField,
+    parseQuery, setForced, nowCycle, isNight, getField, rainbowId, slotIndex,
     get forced() { return { t: forced.t, w: forced.w, field: forced.field }; },
   };
 })(typeof window !== "undefined" ? window : this);
