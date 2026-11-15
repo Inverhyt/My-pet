@@ -425,17 +425,27 @@ button.swatch:active { transform: translateY(2px); box-shadow: none; }
 }
 #soapFill { background: linear-gradient(90deg, #c8e8f6, #9fd4f0); }
 
-#looks.overlay { align-items: flex-start; padding: 8px 12px 10px; }
+#looks.overlay { align-items: flex-start; justify-content: center; padding: 8px 12px 10px; }
 #looks .card {
-  max-height: 100%;
+  max-height: calc(100dvh - 18px);
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+#looks .looks-tabs { flex: 0 0 auto; }
+#looks #looksPane,
+#looks #fieldPane {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
 #looks .looks-foot {
-  position: sticky;
-  bottom: 0;
+  position: static;
+  flex: 0 0 auto;
   background: var(--card);
-  z-index: 3;
+  z-index: auto;
   padding-top: 8px;
   padding-bottom: 2px;
   margin-top: 8px;
