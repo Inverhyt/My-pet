@@ -1156,7 +1156,7 @@ function assetUrl(path) {
         ? "Tap the reeds, the bed, or a floating orange"
         : "Tap the food, water, bed, or a flower";
       this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, hintMsg, {
-        fontFamily: "Nunito, sans-serif", fontSize: "16px", color: "#4a3426",
+        fontFamily: "Lexend, sans-serif", fontSize: "16px", fontStyle: "600", color: "#4a3426",
         backgroundColor: "#fffaf3cc", padding: { x: 8, y: 4 },
       }).setOrigin(0.5, 0).setDepth(20);
       this.time.delayedCall(5000, () => this.hint && this.hint.destroy());
@@ -2170,9 +2170,9 @@ function assetUrl(path) {
     popRainbowCoin(wx, wy) {
       const s = this.fScale || 1;
       const t = this.add.text(wx, wy - 8, "🪙 +5", {
-        fontFamily: "system-ui, sans-serif",
+        fontFamily: "Lexend, sans-serif",
         fontSize: Math.round(22 * (s / 0.65)) + "px",
-        fontStyle: "bold",
+        fontStyle: "600",
         color: "#5a3a1a",
         stroke: "#fffaf3",
         strokeThickness: 4,
@@ -4324,6 +4324,23 @@ function assetUrl(path) {
     }
   }
 
+
+  function whenUiFontsReady() {
+    if (!(document.fonts && document.fonts.load)) return Promise.resolve();
+    const loads = [
+      document.fonts.load("700 32px Rowdies"),
+      document.fonts.load("400 24px Rowdies"),
+      document.fonts.load("400 16px Lexend"),
+      document.fonts.load("500 16px Lexend"),
+      document.fonts.load("600 16px Lexend"),
+    ];
+    const ready = document.fonts.ready || Promise.resolve();
+    return Promise.race([
+      Promise.all([ready].concat(loads.map((p) => p.catch(() => null)))),
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+    ]);
+  }
+
   function startGame() {
     $("hud").classList.remove("hidden");
     $("boot").classList.add("hidden");
@@ -4336,6 +4353,8 @@ function assetUrl(path) {
       setTimeout(() => maybeCelebrateBirthday(), 400);
       return;
     }
+    const bootPhaser = () => {
+    if (game) return;
     game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: "game",
@@ -4468,6 +4487,8 @@ function assetUrl(path) {
       openRehome,
     };
     setTimeout(() => maybeCelebrateBirthday(), 800);
+    };
+    whenUiFontsReady().then(bootPhaser).catch(bootPhaser);
   }
 
   async function main() {
