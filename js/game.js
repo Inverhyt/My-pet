@@ -82,7 +82,7 @@ function assetUrl(path) {
   const STATIC_SAVE = "mypet-static-v1";
   // Tappable park toys, in field pixels.
   const PARK = {
-    hay:    { x: 300, y: 820, r: 70, kind: "hop",    standL: { x: 215, y: 820 }, standR: { x: 400, y: 820 }, label: "hay" },
+    hay:    { x: 300, y: 820, r: 80, kind: "hop",    standL: { x: 186, y: 820 }, standR: { x: 414, y: 820 }, label: "hay" },
     slide:  { x: 760, y: 580, r: 90, kind: "slide",  start: { x: 685, y: 615 }, top: { x: 715, y: 475 }, end: { x: 850, y: 660 }, label: "slide" },
     tunnel: { x: 250, y: 580, r: 80, kind: "tunnel", start: { x: 170, y: 595 }, end: { x: 340, y: 595 }, label: "tunnel" },
   };
@@ -1294,17 +1294,18 @@ function assetUrl(path) {
     pushOut(fx, fy) {
       const pad = 30;
       let p = { x: this.clamp(fx), y: this.clampY(fy) };
-      for (let guard = 0; guard < 8; guard++) {
+      for (let guard = 0; guard < 12; guard++) {
         const b = this.hitsBlocker(p.x, p.y);
         if (!b) return p;
         const ang = Math.atan2(p.y - b.fy, p.x - b.fx);
         const a = (p.x === b.fx && p.y === b.fy) ? -Math.PI / 2 : ang;
+        const clear = pad + 8;
         const cand = [
-          { x: this.clamp(b.fx + Math.cos(a) * (b.rx + pad + 4)), y: this.clampY(b.fy + Math.sin(a) * (b.ry + pad + 4)) },
-          { x: this.clamp(p.x), y: this.clampY(b.fy + b.ry + pad + 4) },
-          { x: this.clamp(p.x), y: this.clampY(b.fy - b.ry - pad - 4) },
-          { x: this.clamp(b.fx + b.rx + pad + 4), y: this.clampY(p.y) },
-          { x: this.clamp(b.fx - b.rx - pad - 4), y: this.clampY(p.y) },
+          { x: this.clamp(b.fx + Math.cos(a) * (b.rx + clear)), y: this.clampY(b.fy + Math.sin(a) * (b.ry + clear)) },
+          { x: this.clamp(p.x), y: this.clampY(b.fy + b.ry + clear) },
+          { x: this.clamp(p.x), y: this.clampY(b.fy - b.ry - clear) },
+          { x: this.clamp(b.fx + b.rx + clear), y: this.clampY(p.y) },
+          { x: this.clamp(b.fx - b.rx - clear), y: this.clampY(p.y) },
         ];
         let next = null;
         for (let i = 0; i < cand.length; i++) {
@@ -1338,27 +1339,92 @@ function assetUrl(path) {
         if (score < bestScore) { best = c; bestScore = score; }
       }
       if (!best) {
-        best = { x: this.clamp(b.fx + px * (b.rx + pad + 8)), y: this.clampY(b.fy + py * (b.ry + pad + 8)) };
+        best = this.pushOut(b.fx + px * (b.rx + pad + 8), b.fy + py * (b.ry + pad + 8));
       }
       return best;
     }
 
-    buildPath(fx, fy) {
-      const dest = this.pushOut(fx, fy);
-      const start = this.toField(this.footX, this.footY);
-      const path = [];
-      let cur = { x: start.x, y: start.y };
-      if (this.hitsBlocker(cur.x, cur.y)) {
-        const stuck = this.hitsBlocker(cur.x, cur.y);
-        if (stuck) {
-          const ang = Math.atan2(cur.y - stuck.fy, cur.x - stuck.fx);
-          cur = {
-            x: this.clamp(stuck.fx + Math.cos(ang) * (stuck.rx + 14)),
-            y: this.clampY(stuck.fy + Math.sin(ang) * (stuck.ry + 14)),
-          };
-          path.push(cur);
+    smoothPath(pts) {
+      if (!pts || pts.length <= 2) return (pts || []).slice(1);
+      const out = [];
+      let i = 0;
+      while (i < pts.length - 1) {
+        let j = pts.length - 1;
+        for (; j > i + 1; j--) {
+          if (!this.lineHits(pts[i].x, pts[i].y, pts[j].x, pts[j].y)) break;
+        }
+        out.push(pts[j]);
+        i = j;
+      }
+      return out;
+    }
+
+    findGridPath(start, dest) {
+      const step = 24;
+      const snap = (v) => Math.round(v / step) * step;
+      const ok = (x, y) => x >= WALK.x0 && x <= WALK.x1 && y >= WALK.y0 && y <= WALK.y1 && !this.hitsBlocker(x, y);
+      const nudge = (x, y) => {
+        if (ok(x, y)) return { x, y };
+        for (let r = step; r <= step * 3; r += step) {
+          const dirs = [[r, 0], [-r, 0], [0, r], [0, -r], [r, r], [-r, r], [r, -r], [-r, -r]];
+          for (let i = 0; i < dirs.length; i++) {
+            const nx = x + dirs[i][0], ny = y + dirs[i][1];
+            if (ok(nx, ny)) return { x: nx, y: ny };
+          }
+        }
+        const p = this.pushOut(x, y);
+        return { x: snap(p.x), y: snap(p.y) };
+      };
+      const s = nudge(snap(start.x), snap(start.y));
+      const d = nudge(snap(dest.x), snap(dest.y));
+      const key = (x, y) => x + "," + y;
+      const open = [{ x: s.x, y: s.y, g: 0, f: Math.hypot(d.x - s.x, d.y - s.y), from: null }];
+      const bestG = {};
+      bestG[key(s.x, s.y)] = 0;
+      const dirs = [[step, 0], [-step, 0], [0, step], [0, -step], [step, step], [step, -step], [-step, step], [-step, -step]];
+      const diag = step * Math.SQRT2;
+      let found = null;
+      for (let guard = 0; guard < 2200 && open.length; guard++) {
+        let bi = 0;
+        for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
+        const cur = open.splice(bi, 1)[0];
+        if (cur.x === d.x && cur.y === d.y) { found = cur; break; }
+        for (let i = 0; i < dirs.length; i++) {
+          const ox = dirs[i][0], oy = dirs[i][1];
+          const nx = cur.x + ox, ny = cur.y + oy;
+          if (!ok(nx, ny)) continue;
+          if (ox && oy && (!ok(cur.x + ox, cur.y) || !ok(cur.x, cur.y + oy))) continue;
+          const g = cur.g + ((ox && oy) ? diag : step);
+          const id = key(nx, ny);
+          if (bestG[id] != null && bestG[id] <= g) continue;
+          bestG[id] = g;
+          open.push({ x: nx, y: ny, g: g, f: g + Math.hypot(d.x - nx, d.y - ny), from: cur });
         }
       }
+      if (!found) return null;
+      const raw = [];
+      for (let n = found; n; n = n.from) raw.push({ x: n.x, y: n.y });
+      raw.reverse();
+      if (raw.length && Math.hypot(raw[0].x - start.x, raw[0].y - start.y) < step * 0.75) raw.shift();
+      raw.push({ x: dest.x, y: dest.y });
+      return this.smoothPath([{ x: start.x, y: start.y }].concat(raw));
+    }
+
+    buildPath(fx, fy) {
+      const dest = this.pushOut(fx, fy);
+      let start = this.toField(this.footX, this.footY);
+      const path = [];
+      if (this.hitsBlocker(start.x, start.y)) {
+        start = this.pushOut(start.x, start.y);
+        path.push(start);
+      }
+      if (!this.lineHits(start.x, start.y, dest.x, dest.y)) {
+        path.push(dest);
+        return path;
+      }
+      const found = this.findGridPath(start, dest);
+      if (found && found.length) return path.concat(found);
+      let cur = { x: start.x, y: start.y };
       for (let guard = 0; guard < 8; guard++) {
         const hit = this.lineHits(cur.x, cur.y, dest.x, dest.y);
         if (!hit) { path.push(dest); return path; }
@@ -1682,12 +1748,20 @@ function assetUrl(path) {
     }
 
     onTap(pointer) {
-      if (busy) return;
       if ($("looks").classList.contains("hidden") === false) return;
       if ($("friend").classList.contains("hidden") === false) return;
       if ($("bath") && $("bath").classList.contains("hidden") === false) return;
       if ($("brush") && $("brush").classList.contains("hidden") === false) return;
       const f = this.toField(pointer.worldX, pointer.worldY);
+      const onHay = Math.hypot(f.x - PARK.hay.x, f.y - PARK.hay.y) <= PARK.hay.r;
+      const feet = (this.footX != null) ? this.toField(this.footX, this.footY) : f;
+      const sheepOnHay = Math.hypot(feet.x - PARK.hay.x, feet.y - PARK.hay.y) <= PARK.hay.r + 24;
+      if (onHay || (this.overSheep(pointer) && (sheepOnHay || this._hopping))) {
+        this.interruptNight();
+        this.playPark("hop");
+        return;
+      }
+      if (busy) return;
       if (this.mode === "sleep") {
         const bed = SPOTS.bed;
         const onBed = Math.hypot(f.x - bed.x, f.y - bed.y) <= bed.r;
@@ -1902,16 +1976,63 @@ function assetUrl(path) {
       this.rebuildBlockers();
     }
 
+    hopStands() {
+      const p = PARK.hay;
+      const fp = this.footprintOf("hay_bale");
+      const clear = (fp.rx || 68) + 30 + 12;
+      return {
+        L: this.pushOut(p.x - clear, p.y),
+        R: this.pushOut(p.x + clear, p.y),
+      };
+    }
+
+    resetHop() {
+      if (this.tweens) this.tweens.killTweensOf(this.sheep);
+      const midAir = !!this._hopping;
+      this._hopping = false;
+      this.target = null;
+      this.onArrive = null;
+      this._waypoints = null;
+      if (this.sheep) {
+        let wx = midAir ? this.sheep.x : (this.footX != null ? this.footX : this.sheep.x);
+        let wy = midAir ? this.sheep.y : (this.footY != null ? this.footY : this.sheep.y);
+        const f = this.toField(wx, wy);
+        const out = this.pushOut(f.x, f.y);
+        const w = this.toWorld(out.x, out.y);
+        this.place(w.x, w.y);
+        this.sheep.angle = 0;
+        if (this.fScale) this.sheep.setScale(this.fScale, this.fScale);
+        this.showAnim("idle");
+      }
+      this.mode = "idle";
+      busy = false;
+    }
+
     playPark(kind) {
       this.interruptNight();
+      if (kind === "hop") {
+        this.resetHop();
+        busy = true;
+        this.doHop();
+        return;
+      }
       if (busy) return;
       busy = true;
-      if (kind === "hop") this.doHop();
-      else if (kind === "slide") this.doSlide();
+      if (kind === "slide") this.doSlide();
       else this.doTunnel();
     }
 
+    plantFeet() {
+      if (!this.sheep) return;
+      const f = this.toField(this.sheep.x, this.sheep.y);
+      const out = this.pushOut(f.x, f.y);
+      const w = this.toWorld(out.x, out.y);
+      this.place(w.x, w.y);
+    }
+
     finishPlay(msg) {
+      this._hopping = false;
+      this.plantFeet();
       doCare("play").catch(() => {});
       toast(msg);
       blip("click");
@@ -1919,16 +2040,30 @@ function assetUrl(path) {
       this.tweens.add({
         targets: this.sheep, y: this.sheep.y - 12, yoyo: true, duration: 140, repeat: 2,
         onUpdate: () => this.layoutWear(),
-        onComplete: () => { this.goIdle(); busy = false; },
+        onComplete: () => {
+          this.plantFeet();
+          this.goIdle();
+          busy = false;
+        },
       });
     }
 
     doHop() {
       const p = PARK.hay;
-      this.walkTo(p.standL.x, p.standL.y, () => {
+      const stands = this.hopStands();
+      const cur = (this.footX != null) ? this.toField(this.footX, this.footY) : { x: p.standL.x, y: p.standL.y };
+      const dL = Math.hypot(cur.x - stands.L.x, cur.y - stands.L.y);
+      const dR = Math.hypot(cur.x - stands.R.x, cur.y - stands.R.y);
+      const from = dL <= dR ? stands.L : stands.R;
+      const to = dL <= dR ? stands.R : stands.L;
+      this.walkTo(from.x, from.y, () => {
+        this._hopping = true;
+        this.mode = "hop";
         this.showAnim("happy");
-        const mid = this.toWorld((p.standL.x + p.standR.x) / 2, p.y - 90);
-        const land = this.toWorld(p.standR.x, p.standR.y);
+        const fromW = this.toWorld(from.x, from.y);
+        const land = this.toWorld(to.x, to.y);
+        const mid = this.toWorld((from.x + to.x) / 2, p.y - 90);
+        this.setFacing(land.x - fromW.x);
         this.tweens.add({
           targets: this.sheep, x: mid.x, duration: 280, ease: "Sine.easeOut",
           onUpdate: () => this.layoutWear(),
@@ -1937,10 +2072,16 @@ function assetUrl(path) {
           targets: this.sheep, y: mid.y, duration: 280, ease: "Quad.easeOut",
           onUpdate: () => this.layoutWear(),
           onComplete: () => {
+            if (!this._hopping) return;
             this.tweens.add({
               targets: this.sheep, x: land.x, y: land.y, duration: 280, ease: "Quad.easeIn",
               onUpdate: () => this.layoutWear(),
-              onComplete: () => this.finishPlay("Hop! 🌾"),
+              onComplete: () => {
+                if (!this._hopping) return;
+                this.place(land.x, land.y);
+                this._hopping = false;
+                this.finishPlay("Hop! 🌾");
+              },
             });
           },
         });
@@ -2222,11 +2363,30 @@ function assetUrl(path) {
               if (!this.hitsBlocker(ofy.x, ofy.y)) { nx = ox2; ny = oy2; }
             }
           }
-          this.footX = nx;
-          this.footY = ny;
-          this.setFacing(dx);
-          this.applyWalkMotion();
-          this.layoutWear();
+          const still = this.toField(nx, ny);
+          if (this.hitsBlocker(still.x, still.y)) {
+            if (!this._repathAt || this.time.now - this._repathAt > 180) {
+              this._repathAt = this.time.now;
+              const curF = this.toField(this.footX, this.footY);
+              if (this.hitsBlocker(curF.x, curF.y)) {
+                const out = this.pushOut(curF.x, curF.y);
+                const w = this.toWorld(out.x, out.y);
+                this.place(w.x, w.y);
+              }
+              this._waypoints = this.buildPath(destF.x, destF.y);
+              this._wpI = 0;
+              const first = this._waypoints && this._waypoints[0];
+              if (first) this.target = this.toWorld(first.x, first.y);
+            }
+            this.applyWalkMotion();
+            this.layoutWear();
+          } else {
+            this.footX = nx;
+            this.footY = ny;
+            this.setFacing(dx);
+            this.applyWalkMotion();
+            this.layoutWear();
+          }
         }
       } else if (this.mode === "idle" && this.time.now > this.idleAt) {
         if (this._wantNightSleep && window.MyPetWorld && MyPetWorld.isNight() && !busy) {
