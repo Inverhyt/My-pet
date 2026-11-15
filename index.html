@@ -9,7 +9,7 @@
   <base href="./">
   <meta name="theme-color" content="#c5dff2">
   <title>My Pet</title>
-  <link rel="stylesheet" href="css/style.css?v=12">
+  <link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
   <div id="app">
@@ -57,7 +57,7 @@
     <div id="adopt" class="overlay hidden">
       <div class="paper" id="adoptPaper">
         <div class="paper-doodle" aria-hidden="true"></div>
-        <img class="paper-seal" src="assets/seal.png?v=12" alt="">
+        <img class="paper-seal" src="assets/seal.png?v=13" alt="">
         <h1>📜 Adopt</h1>
         <p class="lead">A new friend.</p>
         <div class="paper-date">🎂 Birthday <span id="adoptDate">Today</span></div>
@@ -88,7 +88,7 @@
         <input id="nameInput" type="text" maxlength="24" placeholder="Biscuit" autocomplete="off" spellcheck="false">
         <button type="button" class="big" id="adoptBtn">💗 Adopt</button>
         <div id="stampFx" class="stamp-fx hidden">
-          <img class="stamp-seal" src="assets/seal.png?v=12" alt="">
+          <img class="stamp-seal" src="assets/seal.png?v=13" alt="">
         </div>
         <div id="confetti" class="confetti"></div>
       </div>
@@ -117,7 +117,27 @@
           <p class="lead">Pick a field.</p>
           <div id="fieldGrid" class="field-grid"></div>
         </div>
-        <button type="button" class="big ghost" id="looksClose">Close</button>
+        <div class="looks-foot">
+          <button type="button" class="big ghost" id="rehomeBtn">Re-home</button>
+          <button type="button" class="big ghost" id="looksClose">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="rehomeConfirm" class="overlay hidden">
+      <div class="card">
+        <h2>Are you sure?</h2>
+        <p class="lead" id="rehomeConfirmLead">This pet can go to a new home.</p>
+        <button type="button" class="big" id="rehomeYes">Yes, goodbye</button>
+        <button type="button" class="big ghost" id="rehomeNo">Stay</button>
+      </div>
+    </div>
+
+    <div id="rehomeBye" class="overlay hidden">
+      <div class="card">
+        <h2 id="rehomeByeTitle">Take care</h2>
+        <p class="lead" id="rehomeByeLead">They have a kind new home now.</p>
+        <button type="button" class="big" id="rehomeByeOk">OK</button>
       </div>
     </div>
 
@@ -169,7 +189,7 @@
         <div id="bathSheepWrap" class="bath-wrap">
           <div class="tub"></div>
           <div id="bathActor" class="bath-actor">
-            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=12" alt="Sheep">
+            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=13" alt="Sheep">
             <img id="bathHat" class="wear-hat hidden" alt="">
             <img id="bathCollar" class="wear-collar hidden" alt="">
           </div>
@@ -193,7 +213,7 @@
         </div>
         <div id="brushWrap" class="bath-wrap brush-wrap">
           <div id="brushActor" class="bath-actor">
-            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=12" alt="Sheep">
+            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=13" alt="Sheep">
             <img id="brushHat" class="wear-hat hidden" alt="">
             <img id="brushCollar" class="wear-collar hidden" alt="">
           </div>
@@ -212,7 +232,7 @@
   </div>
 
   <script>
-    window.MYPET_ASSET_V = "12";
+    window.MYPET_ASSET_V = "13";
     window.ASSET_BASE = (function () {
       var p = location.pathname || "/";
       if (p.indexOf(".html") !== -1) p = p.replace(/[^/]+$/, "");
@@ -222,11 +242,11 @@
     window.MYPET_TEST_MODE = true;
   </script>
   <script src="vendor/phaser.min.js"></script>
-  <script src="js/api.js?v=12"></script>
-  <script src="js/species.js?v=12"></script>
-  <script src="js/color.js?v=12"></script>
-  <script src="js/world.js?v=12"></script>
-  <script src="js/pets.js?v=12"></script>
-  <script src="js/game.js?v=12"></script>
+  <script src="js/api.js?v=13"></script>
+  <script src="js/species.js?v=13"></script>
+  <script src="js/color.js?v=13"></script>
+  <script src="js/world.js?v=13"></script>
+  <script src="js/pets.js?v=13"></script>
+  <script src="js/game.js?v=13"></script>
 </body>
 </html>
