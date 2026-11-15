@@ -87,11 +87,11 @@
     happy: { x: -39, y: -93 },
     sleep: { x: -24, y: -51 },
     walk:  { x: -21, y: -88 },
-    swim:  { x: -8, y: -72 },
-    swim1: { x: -10, y: -68 },
-    swim2: { x: -8, y: -74 },
-    swim3: { x: -8, y: -72 },
-    swim4: { x: -8, y: -71 },
+    swim:  { x: -23, y: -67 },
+    swim1: { x: -23, y: -67 },
+    swim2: { x: -22, y: -68 },
+    swim3: { x: -22, y: -68 },
+    swim4: { x: -24, y: -65 },
   };
   const CAPY_NECK = {
     idle: { x: -24, y: -50 },
@@ -104,11 +104,11 @@
     happy: { x: -39, y: -55 },
     sleep: { x: -24, y: -13 },
     walk:  { x: -21, y: -48 },
-    swim:  { x: -8, y: -36 },
-    swim1: { x: -10, y: -32 },
-    swim2: { x: -8, y: -38 },
-    swim3: { x: -8, y: -36 },
-    swim4: { x: -8, y: -35 },
+    swim:  { x: -23, y: -31 },
+    swim1: { x: -23, y: -31 },
+    swim2: { x: -22, y: -32 },
+    swim3: { x: -22, y: -32 },
+    swim4: { x: -24, y: -29 },
   };
   const CAPY_NOSE = {
     idle: { x: -48, y: -71 },
@@ -121,11 +121,11 @@
     happy: { x: -69, y: -75 },
     sleep: { x: -52, y: -33 },
     walk:  { x: -43, y: -69 },
-    swim:  { x: -28, y: -52 },
-    swim1: { x: -30, y: -48 },
-    swim2: { x: -28, y: -54 },
-    swim3: { x: -28, y: -52 },
-    swim4: { x: -28, y: -51 },
+    swim:  { x: -35, y: -55 },
+    swim1: { x: -36, y: -56 },
+    swim2: { x: -36, y: -56 },
+    swim3: { x: -33, y: -55 },
+    swim4: { x: -35, y: -53 },
   };
 
   const ROCK_HEAD = {

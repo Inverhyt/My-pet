@@ -1355,7 +1355,7 @@ function assetUrl(path) {
       const keys = ["swim1", "swim2", "swim3", "swim4"].map((k) => this.swimFrameKey(k));
       this.anims.create({
         key: "swim",
-        frames: keys.map((k) => ({ key: k, duration: 160 })),
+        frames: keys.map((k) => ({ key: k, duration: 240 })),
         repeat: -1,
       });
     }
@@ -1798,9 +1798,13 @@ function assetUrl(path) {
       const s = this.fScale || 1;
       const face = this.sheep.flipX ? -1 : 1;
       const carried = (this.oranges || []).filter((o) => o && o._carried);
+      const swimming = !!(this.hasSwim && this.hasSwim() && this.inPoolFeet && this.inPoolFeet());
       carried.forEach((o, i) => {
-        o.x = this.sheep.x + face * (-20 - i * 12) * s;
-        o.y = this.sheep.y - (42 + (i % 2) * 8) * s;
+        // On the swim sprite the back ridge is toward the rear (right when facing left).
+        const ox = swimming ? (20 + i * 12) : (-20 - i * 12);
+        const oy = swimming ? (72 + (i % 2) * 8) : (42 + (i % 2) * 8);
+        o.x = this.sheep.x + face * ox * s;
+        o.y = this.sheep.y - oy * s;
         o.setDepth((this.footY != null ? this.footY : this.sheep.y) + 4);
         o.setFlipX(!!this.sheep.flipX);
       });
