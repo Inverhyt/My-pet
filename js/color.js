@@ -593,7 +593,8 @@
   function isIdentityEntry(entry) {
     if (!entry) return true;
     if (entry.identity) return true;
-    if (entry.pal === null && entry.rgb == null && !entry.mode && entry.hue == null) return true;
+    // Treat missing pal/rgb the same (EYES.white uses rgb: null with no pal key).
+    if (entry.pal == null && entry.rgb == null && !entry.mode && entry.hue == null) return true;
     return false;
   }
   function shouldApplyDye(colors, key, map) {
@@ -744,34 +745,17 @@
     const eyeDye = dyes.eyes;
     const need = dyes.wool || dyes.face || presets.wool || presets.face || eyeRgb || eyeDye;
     if (!need) return src;
-    const eyeMask = (eyeRgb || eyeDye) ? findEyes(data, w, h) : null;
+    // Do not use findEyes() here: on non-sheep art it treats bright body fur as
+    // eye whites and, with default white-eye dye, bleaches the whole pet.
     for (let p = 0; p < w * h; p++) {
       const i = p * 4, a = data[i + 3];
       if (a === 0) continue;
       const r = data[i], g = data[i + 1], b = data[i + 2];
       const [hh, ss, ll] = rgbToHsl(r, g, b);
       if (ll < 0.12) continue; // outline / pupils
-      if (eyeMask && eyeMask[p]) {
-        if (eyeDye) {
-          const n = applyDye(r, g, b, eyeDye);
-          data[i] = n[0]; data[i + 1] = n[1]; data[i + 2] = n[2];
-        } else if (eyeRgb) {
-          const er = eyeRgb[0], eg = eyeRgb[1], eb = eyeRgb[2];
-          const L = lum(r, g, b);
-          if (L > 245) {
-            data[i] = Math.min(255, er + 45); data[i + 1] = Math.min(255, eg + 40); data[i + 2] = Math.min(255, eb + 40);
-          } else {
-            const tt = Math.max(0, Math.min(1, (L - 180) / 70));
-            data[i] = lerp((er * 0.72) | 0, er, tt);
-            data[i + 1] = lerp((eg * 0.72) | 0, eg, tt);
-            data[i + 2] = lerp((eb * 0.72) | 0, eb, tt);
-          }
-        }
-        continue;
-      }
       if (isBlushHsl(hh, ss, ll, r, g, b)) continue;
       if (isCreamHsl(hh, ss, ll)) {
-        if (eyeRgb && ll > 0.9 && ss < 0.2) {
+        if ((eyeDye || eyeRgb) && ll > 0.9 && ss < 0.2) {
           const x = p % w, y = (p / w) | 0;
           let nearDark = false;
           for (let dy = -2; dy <= 2 && !nearDark; dy++) {
@@ -785,9 +769,14 @@
             }
           }
           if (nearDark) {
-            data[i] = Math.min(255, eyeRgb[0] + 45);
-            data[i + 1] = Math.min(255, eyeRgb[1] + 40);
-            data[i + 2] = Math.min(255, eyeRgb[2] + 40);
+            if (eyeDye) {
+              const n = applyDye(r, g, b, eyeDye);
+              data[i] = n[0]; data[i + 1] = n[1]; data[i + 2] = n[2];
+            } else {
+              data[i] = Math.min(255, eyeRgb[0] + 45);
+              data[i + 1] = Math.min(255, eyeRgb[1] + 40);
+              data[i + 2] = Math.min(255, eyeRgb[2] + 40);
+            }
           }
         }
         continue;
