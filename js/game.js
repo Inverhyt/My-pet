@@ -124,8 +124,11 @@ function assetUrl(path) {
       },
       park: false,
       pool: { cx: 508, cy: 696, rx: 327, ry: 126 },
-      beach: { x: 517, y: 551, rx: 182, ry: 28 },
-      rockPad: { rx: 34, ry: 32 },
+      beach: { x: 505, y: 548, rx: 62, ry: 50 },
+      shoreGate: { x0: 448, x1: 568, y0: 470, y1: 620 },
+      shoreLand: { x: 508, y: 480 },
+      shoreWater: { x: 508, y: 590 },
+      rockPad: { rx: 90, ry: 74 },
       oranges: [
         { x: 490, y: 746 }, { x: 248, y: 634 }, { x: 379, y: 757 },
         { x: 645, y: 688 }, { x: 356, y: 646 },
@@ -1401,8 +1404,15 @@ function assetUrl(path) {
       return !!(L && L.pool && inEllipse(fx, fy, L.pool, -2, -2));
     }
     inBeachAt(fx, fy) {
+      return this.inShoreAt(fx, fy);
+    }
+    inShoreAt(fx, fy) {
       const L = fieldLayout();
-      return !!(L && L.beach && inEllipse(fx, fy, L.beach, 8, 10));
+      if (!L) return false;
+      const r = L.shoreGate;
+      if (r && fx >= r.x0 && fx <= r.x1 && fy >= r.y0 && fy <= r.y1) return true;
+      const g = L.shore || L.beach;
+      return !!(g && inEllipse(fx, fy, g, 0, 0));
     }
     inPoolFeet() {
       if (!this.sheep) return false;
@@ -1412,9 +1422,14 @@ function assetUrl(path) {
     onSpaRock(fx, fy) {
       const L = fieldLayout();
       if (!L || !L.pool) return false;
-      if (this.inPoolAt(fx, fy) || this.inBeachAt(fx, fy)) return false;
-      const pad = L.rockPad || { rx: 34, ry: 32 };
+      if (this.inPoolAt(fx, fy) || this.inShoreAt(fx, fy)) return false;
+      const pad = L.rockPad || { rx: 90, ry: 74 };
       return inEllipse(fx, fy, L.pool, pad.rx, pad.ry);
+    }
+    spaZone(fx, fy) {
+      if (this.inPoolAt(fx, fy)) return "water";
+      if (this.onSpaRock(fx, fy)) return "rock";
+      return "land";
     }
     locoAnim() {
       return (this.hasSwim() && this.inPoolFeet()) ? "swim" : "walk";
@@ -1513,9 +1528,40 @@ function assetUrl(path) {
       return null;
     }
 
+    nearestWalkable(fx, fy, maxR) {
+      const x0 = this.clamp(fx), y0 = this.clampY(fy);
+      if (!this.hitsBlocker(x0, y0)) return { x: x0, y: y0 };
+      maxR = maxR || 240;
+      let best = null, bestD = 1e9;
+      for (let r = 8; r <= maxR; r += 8) {
+        const n = Math.max(8, Math.round((Math.PI * 2 * r) / 8));
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          const x = this.clamp(fx + Math.cos(a) * r);
+          const y = this.clampY(fy + Math.sin(a) * r);
+          if (this.hitsBlocker(x, y)) continue;
+          const d = Math.hypot(x - fx, y - fy);
+          if (d < bestD) { best = { x: x, y: y }; bestD = d; }
+        }
+        if (best && bestD <= r + 0.1) return best;
+      }
+      const L = fieldLayout();
+      if (L && L.shoreLand) {
+        const pts = [L.shoreLand, L.shoreWater, L.beach, L.start].filter(Boolean);
+        for (let i = 0; i < pts.length; i++) {
+          const p = { x: this.clamp(pts[i].x), y: this.clampY(pts[i].y) };
+          if (this.hitsBlocker(p.x, p.y)) continue;
+          const d = Math.hypot(p.x - fx, p.y - fy);
+          if (d < bestD) { best = p; bestD = d; }
+        }
+      }
+      return best || { x: x0, y: y0 };
+    }
+
     pushOut(fx, fy) {
       const pad = 30;
       let p = { x: this.clamp(fx), y: this.clampY(fy) };
+      if (this.onSpaRock && this.onSpaRock(p.x, p.y)) return this.nearestWalkable(p.x, p.y);
       for (let guard = 0; guard < 12; guard++) {
         const b = this.hitsBlocker(p.x, p.y);
         if (!b) return p;
@@ -1632,6 +1678,36 @@ function assetUrl(path) {
       return this.smoothPath([{ x: start.x, y: start.y }].concat(raw));
     }
 
+    pathSegment(start, dest) {
+      if (!this.lineHits(start.x, start.y, dest.x, dest.y)) return [dest];
+      const found = this.findGridPath(start, dest);
+      if (found && found.length) return found;
+      const path = [];
+      let cur = { x: start.x, y: start.y };
+      for (let guard = 0; guard < 8; guard++) {
+        const hit = this.lineHits(cur.x, cur.y, dest.x, dest.y);
+        if (!hit) { path.push(dest); return path; }
+        if (hit.id === "spa-rocks") break;
+        const wp = this.aroundPoint(hit, cur, dest);
+        if (Math.hypot(wp.x - cur.x, wp.y - cur.y) < 4) break;
+        path.push(wp);
+        cur = wp;
+      }
+      path.push(dest);
+      return path;
+    }
+
+    shoreWaypoints() {
+      const L = fieldLayout();
+      if (!L || !L.pool) return null;
+      const land = L.shoreLand || (L.beach && { x: L.beach.x, y: L.beach.y - 18 }) || { x: 508, y: 480 };
+      const water = L.shoreWater || (L.beach && { x: L.beach.x, y: L.beach.y + 40 }) || { x: 508, y: 590 };
+      return {
+        land: this.pushOut(land.x, land.y),
+        water: this.pushOut(water.x, water.y),
+      };
+    }
+
     buildPath(fx, fy) {
       const dest = this.pushOut(fx, fy);
       let start = this.toField(this.footX, this.footY);
@@ -1640,16 +1716,49 @@ function assetUrl(path) {
         start = this.pushOut(start.x, start.y);
         path.push(start);
       }
+      const L = fieldLayout();
+      if (L && L.pool && this.spaZone) {
+        const zs = this.spaZone(start.x, start.y);
+        const zd = this.spaZone(dest.x, dest.y);
+        if (zs !== zd && zs !== "rock" && zd !== "rock") {
+          const shore = this.shoreWaypoints();
+          if (shore) {
+            const first = (zs === "land") ? shore.land : shore.water;
+            const second = (zs === "land") ? shore.water : shore.land;
+            return path.concat(
+              this.pathSegment(start, first),
+              this.pathSegment(first, second),
+              this.pathSegment(second, dest)
+            );
+          }
+        }
+      }
       if (!this.lineHits(start.x, start.y, dest.x, dest.y)) {
         path.push(dest);
         return path;
       }
       const found = this.findGridPath(start, dest);
       if (found && found.length) return path.concat(found);
+      // Do not hug the rock ring with aroundPoint — go via the shore if the line hits it.
+      const hit0 = this.lineHits(start.x, start.y, dest.x, dest.y);
+      if (hit0 && hit0.id === "spa-rocks") {
+        const shore = this.shoreWaypoints();
+        if (shore) {
+          const zs = this.spaZone(start.x, start.y);
+          const first = (zs === "water") ? shore.water : shore.land;
+          const second = (zs === "water") ? shore.land : shore.water;
+          return path.concat(
+            this.pathSegment(start, first),
+            this.pathSegment(first, second),
+            this.pathSegment(second, dest)
+          );
+        }
+      }
       let cur = { x: start.x, y: start.y };
       for (let guard = 0; guard < 8; guard++) {
         const hit = this.lineHits(cur.x, cur.y, dest.x, dest.y);
         if (!hit) { path.push(dest); return path; }
+        if (hit.id === "spa-rocks") break;
         const wp = this.aroundPoint(hit, cur, dest);
         if (Math.hypot(wp.x - cur.x, wp.y - cur.y) < 4) break;
         path.push(wp);
@@ -2821,7 +2930,7 @@ function assetUrl(path) {
     update(_, dt) {
       if (this.target) {
         if (this.footX == null) { this.footX = this.sheep.x; this.footY = this.sheep.y; }
-        const speed = 0.12 * this.fScale * dt;
+        const speed = 0.12 * this.fScale * dt * (this._speedMul || 1);
         const dx = this.target.x - this.footX;
         const dy = this.target.y - this.footY;
         const dist = Math.hypot(dx, dy);
@@ -2848,11 +2957,22 @@ function assetUrl(path) {
           if (this.hitsBlocker(still.x, still.y)) {
             if (!this._repathAt || this.time.now - this._repathAt > 180) {
               this._repathAt = this.time.now;
+              this._stuckN = (this._stuckN || 0) + 1;
               const curF = this.toField(this.footX, this.footY);
               if (this.hitsBlocker(curF.x, curF.y)) {
                 const out = this.pushOut(curF.x, curF.y);
                 const w = this.toWorld(out.x, out.y);
                 this.place(w.x, w.y);
+              }
+              if (this._stuckN > 20) {
+                const snap = this.nearestWalkable ? this.nearestWalkable(destF.x, destF.y) : this.pushOut(destF.x, destF.y);
+                const w = this.toWorld(snap.x, snap.y);
+                this.place(w.x, w.y);
+                this._stuckN = 0;
+                this.arrive();
+                this.applyWalkMotion();
+                this.layoutWear();
+                return;
               }
               this._waypoints = this.buildPath(destF.x, destF.y);
               this._wpI = 0;
@@ -2864,6 +2984,7 @@ function assetUrl(path) {
           } else {
             this.footX = nx;
             this.footY = ny;
+            this._stuckN = 0;
             this.setFacing(dx);
             this.applyWalkMotion();
             if (this.sheep && this.sheep.anims && this.sheep.anims.currentAnim && (this.sheep.anims.currentAnim.key === "walk" || this.sheep.anims.currentAnim.key === "swim")) {
@@ -4325,6 +4446,15 @@ function assetUrl(path) {
       prepareAdoptPaper,
       maybeCelebrateBirthday,
       walkTo: (fx, fy, then) => { if (pasture) pasture.walkTo(fx, fy, then); },
+      pushOut: (fx, fy) => pasture && pasture.pushOut && pasture.pushOut(fx, fy),
+      hitsBlocker: (fx, fy) => pasture && pasture.hitsBlocker && pasture.hitsBlocker(fx, fy),
+      onSpaRock: (fx, fy) => pasture && pasture.onSpaRock && pasture.onSpaRock(fx, fy),
+      spaZone: (fx, fy) => pasture && pasture.spaZone && pasture.spaZone(fx, fy),
+      buildPath: (fx, fy) => pasture && pasture.buildPath && pasture.buildPath(fx, fy),
+      footField: () => {
+        if (!pasture) return null;
+        return pasture.toField(pasture.footX, pasture.footY);
+      },
       placeField: (fx, fy) => {
         if (!pasture || !pasture.toWorld) return;
         const p = pasture.toWorld(fx, fy);
