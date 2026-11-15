@@ -268,6 +268,7 @@ function assetUrl(path) {
       state.pet.fieldTheme = window.MyPetWorld.forced.field;
     }
     if (!state.pet.fieldTheme) state.pet.fieldTheme = "meadow";
+    if (window.MyPetWorld && MyPetWorld.FIELD_IDS.indexOf(state.pet.fieldTheme) < 0) state.pet.fieldTheme = "meadow";
     if (window.MyPetColor) MyPetColor.migratePet(state.pet);
     if (window.MyPetRoster) MyPetRoster.normalizePet(state.pet);
     syncActivePet();
@@ -527,10 +528,13 @@ function assetUrl(path) {
   }
 
   function currentFieldId() {
-    if (window.MyPetWorld && MyPetWorld.forced && MyPetWorld.forced.field) return MyPetWorld.forced.field;
-    const id = state && state.pet && state.pet.fieldTheme;
-    if (window.MyPetWorld && MyPetWorld.FIELD_IDS.indexOf(id) >= 0) return id;
-    return "meadow";
+    const allowed = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"];
+    if (window.MyPetWorld && MyPetWorld.forced && MyPetWorld.forced.field && allowed.indexOf(MyPetWorld.forced.field) >= 0) {
+      return MyPetWorld.forced.field;
+    }
+    const sp = currentSpecies && currentSpecies();
+    const id = (state && state.pet && state.pet.fieldTheme) || (sp && (sp.field || sp.defaultField)) || "meadow";
+    return allowed.indexOf(id) >= 0 ? id : "meadow";
   }
 
   function applySky(cycle) {
@@ -970,7 +974,6 @@ function assetUrl(path) {
       img("drink", "sheep_drink.png");
       img("happy", "sheep_happy.png");
       img("sleep", "sheep_sleep.png");
-      ITEM_FILES.forEach((f) => img(f.slice(0, -4), f));
       img("blanket", "blanket.png");
       img("costume_crown", "costume_crown.png");
       img("costume_bow", "costume_bow.png");
@@ -999,12 +1002,7 @@ function assetUrl(path) {
     create() {
       pasture = this;
       applyPetLook();
-      const walkKeys = ["walk1", "walk2", "walk3", "walk4"].map((k) => this.textures.exists(liveKey(k)) ? liveKey(k) : k);
-      this.anims.create({
-        key: "walk",
-        frames: walkKeys.map((k, i) => ({ key: k, duration: (i % 2 === 0) ? 150 : 90 })),
-        repeat: -1,
-      });
+      this.refreshWalkAnim();
       this.anims.create({ key: "bf", frames: [{ key: "bf1" }, { key: "bf2" }], frameRate: 5, repeat: -1 });
       this.anims.create({ key: "bfb", frames: [{ key: "bfb1" }, { key: "bfb2" }], frameRate: 5, repeat: -1 });
 
@@ -1252,10 +1250,26 @@ function assetUrl(path) {
       this.layoutWear();
     }
 
+    refreshWalkAnim() {
+      if (this.anims.exists("walk")) this.anims.remove("walk");
+      const walkKeys = ["walk1", "walk2", "walk3", "walk4"].map((k) => this.textures.exists(liveKey(k)) ? liveKey(k) : k);
+      const sp = currentSpecies();
+      const even = !!(sp && sp.prefix && sp.prefix !== "sheep");
+      this.anims.create({
+        key: "walk",
+        frames: walkKeys.map((k, i) => ({ key: k, duration: even ? 130 : ((i % 2 === 0) ? 150 : 90) })),
+        repeat: -1,
+      });
+    }
+
     showAnim(key) {
       this.sheep.stop();
-      if (key === "walk") this.sheep.play("walk");
-      else this.sheep.setTexture(this.textures.exists(liveKey(key)) ? liveKey(key) : key);
+      if (key === "walk") {
+        this.refreshWalkAnim();
+        this.sheep.play("walk");
+      } else {
+        this.sheep.setTexture(this.textures.exists(liveKey(key)) ? liveKey(key) : key);
+      }
     }
 
     walkTo(fx, fy, then) {
@@ -1286,22 +1300,10 @@ function assetUrl(path) {
         const fp = this.footprintOf(key);
         this.blockers.push({ id: id, fx: fx, fy: fy, rx: fp.rx, ry: fp.ry, key: key });
       };
-      if (window.MyPetSpecies && state && state.pet) {
-        MyPetSpecies.normalizeItems(state.pet);
-        ["water", "food", "bed"].forEach((slot) => {
-          const def = MyPetSpecies.findItem(slot, state.pet.items[slot]);
-          if (!def) return;
-          const spotKey = MyPetSpecies.ITEM_SLOT_SPOT[slot];
-          const spot = SPOTS[spotKey];
-          if (!spot) return;
-          add("care-" + slot, spot.x, spot.y, def.file.slice(0, -4));
-        });
-        const sp = currentSpecies();
-        const props = sp && sp.homeDecor && MyPetSpecies.HOME_DECOR && MyPetSpecies.HOME_DECOR[sp.homeDecor];
-        if (props) {
-          props.forEach((pr, i) => add("decor-" + (pr.key || i), pr.x, pr.y, pr.file.slice(0, -4)));
-        }
-      }
+      // Standard meadow care props (baked into field_meadow.png).
+      if (SPOTS.basin) add("care-water", SPOTS.basin.x, SPOTS.basin.y, "item_basin");
+      if (SPOTS.trough) add("care-food", SPOTS.trough.x, SPOTS.trough.y, "item_hay_trough");
+      if (SPOTS.bed) add("care-bed", SPOTS.bed.x, SPOTS.bed.y, "item_hay_bed");
       add("park-hay", PARK.hay.x, PARK.hay.y, "hay_bale");
       add("park-slide", PARK.slide.x, PARK.slide.y, "slide");
       add("park-tunnel", PARK.tunnel.x, PARK.tunnel.y, "tunnel");
@@ -1555,48 +1557,16 @@ function assetUrl(path) {
     placeCareItems() {
       if (this.careItems) this.careItems.forEach((s) => s.destroy());
       this.careItems = [];
-      if (!window.MyPetSpecies || !state || !state.pet) return;
-      MyPetSpecies.normalizeItems(state.pet);
-      const scale = this.fScale;
-      ["water", "food", "bed"].forEach((slot) => {
-        const def = MyPetSpecies.findItem(slot, state.pet.items[slot]);
-        if (!def) return;
-        const key = def.file.slice(0, -4);
-        if (!this.textures.exists(key)) return;
-        const spotKey = MyPetSpecies.ITEM_SLOT_SPOT[slot];
-        const spot = SPOTS[spotKey];
-        if (!spot) return;
-        const p = this.toWorld(spot.x, spot.y);
-        const spr = this.add.image(p.x, p.y, key)
-          .setOrigin(def.origin[0], def.origin[1])
-          .setScale(scale)
-          .setDepth(p.y);
-        this.careItems.push(spr);
-      });
+      // Meadow art is the composite field (trough, basin, bed already painted).
+      // Do not overlay item sprites — they would double-draw on live Pages.
       this.rebuildBlockers();
     }
     placeHomeDecor() {
       if (this.homeDecor) this.homeDecor.forEach((s) => s.destroy());
       this.homeDecor = [];
-      const sp = currentSpecies();
-      if (!sp || !sp.homeDecor || !window.MyPetSpecies) return;
-      const props = (MyPetSpecies.HOME_DECOR && MyPetSpecies.HOME_DECOR[sp.homeDecor]) || null;
-      if (!props) return;
-      const scale = this.fScale;
-      props.forEach((pr) => {
-        const key = pr.file.slice(0, -4);
-        if (!this.textures.exists(key)) return;
-        const p = this.toWorld(pr.x, pr.y);
-        const spr = this.add.image(p.x, p.y, key)
-          .setOrigin(pr.origin[0], pr.origin[1])
-          .setScale(scale)
-          .setDepth(p.y);
-        if (pr.flip) spr.setFlipX(true);
-        this.homeDecor.push(spr);
-      });
       this.rebuildBlockers();
     }
-    clearMood() {
+        clearMood() {
       if (this.moodItem) {
         this.moodItem.destroy();
         this.moodItem = null;
@@ -2512,6 +2482,11 @@ function assetUrl(path) {
             this.footY = ny;
             this.setFacing(dx);
             this.applyWalkMotion();
+            if (this.sheep && this.sheep.anims && this.sheep.anims.currentAnim && this.sheep.anims.currentAnim.key === "walk") {
+              const cruise = 0.12 * (this.fScale || 1);
+              const spd = dt > 0 ? (step / dt) : cruise;
+              this.sheep.anims.timeScale = Math.max(0.65, Math.min(1.35, spd / Math.max(0.0001, cruise)));
+            }
             this.layoutWear();
           }
         }

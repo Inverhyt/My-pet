@@ -3,12 +3,11 @@
   const CYCLE_MS = 8 * 60 * 60 * 1000; // 8 real hours = 1 game day; 3 days / 24h
   const WX_SLOT_MS = 90 * 60 * 1000;   // weather holds ~1.5 hours
 
+  // Only Meadow ships for now. Per-species designed fields hook in here later
+  // (add an entry and set species.field to that id). Use the composite
+  // field_meadow.png so this matches live GitHub Pages (bare files are not uploaded).
   const FIELDS = [
     { id: "meadow", name: "Meadow",  emoji: "🌿", file: "field_meadow.png", thumb: "field_meadow_thumb.png" },
-    { id: "autumn", name: "Autumn",  emoji: "🍂", file: "field_autumn.png", thumb: "field_autumn_thumb.png" },
-    { id: "snow",   name: "Snow",    emoji: "❄️", file: "field_snow.png",   thumb: "field_snow_thumb.png" },
-    { id: "flower", name: "Flowers", emoji: "🌸", file: "field_flower.png", thumb: "field_flower_thumb.png" },
-    { id: "moss",   name: "Moss",    emoji: "🍄", file: "field_moss.png",   thumb: "field_moss_thumb.png" },
   ];
   const FIELD_IDS = FIELDS.map((f) => f.id);
 

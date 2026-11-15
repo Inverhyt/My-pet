@@ -118,7 +118,9 @@
     pet.eyes = pet.eyes || def.eyes;
     pet.costumeColors = pet.costumeColors || {};
     if (pet.dye && typeof pet.dye !== "object") pet.dye = {};
-    pet.fieldTheme = pet.fieldTheme || (sp && sp.defaultField) || "meadow";
+    const wanted = pet.fieldTheme || (sp && (sp.field || sp.defaultField)) || "meadow";
+    const allowed = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"];
+    pet.fieldTheme = allowed.indexOf(wanted) >= 0 ? wanted : "meadow";
     if (window.MyPetSpecies) MyPetSpecies.normalizeItems(pet);
     if (!isRealDate(pet.created_at)) pet.created_at = Date.now();
     if (!(pet.birthday && isRealDate(pet.birthday))) {
@@ -269,7 +271,7 @@
       eyes: opts.eyes || def.eyes,
       costumeColors: {},
       dye: opts.dye ? JSON.parse(JSON.stringify(opts.dye)) : undefined,
-      fieldTheme: opts.fieldTheme || (sp && sp.defaultField) || "meadow",
+      fieldTheme: (function(){ const w = opts.fieldTheme || (sp && (sp.field || sp.defaultField)) || "meadow"; const a = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"]; return a.indexOf(w) >= 0 ? w : "meadow"; })(),
       items: opts.items || (window.MyPetSpecies && MyPetSpecies.defaultItems({ species: opts.species })),
       created_at: Date.now(),
       birthday: opts.birthday || today,
