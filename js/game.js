@@ -295,16 +295,28 @@ function assetUrl(path) {
   }
   const COLOR_IMG = {};
   function loadColorImg(file, cb) {
-    if (COLOR_IMG[file] && COLOR_IMG[file].complete && COLOR_IMG[file].naturalWidth) {
-      if (cb) cb(COLOR_IMG[file]);
-      return COLOR_IMG[file];
+    const existing = COLOR_IMG[file];
+    const ok = (im) => im && im.complete && im.naturalWidth;
+    const dead = (im) => !!(im && (im._failed || (im.complete && !im.naturalWidth && im.src)));
+    if (ok(existing)) {
+      if (cb) cb(existing);
+      return existing;
     }
-    const im = COLOR_IMG[file] || new Image();
+    if (dead(existing)) {
+      if (cb) cb(existing);
+      return existing;
+    }
+    const im = existing || new Image();
     COLOR_IMG[file] = im;
     im.crossOrigin = "anonymous";
-    if (cb) im.addEventListener("load", () => cb(im), { once: true });
+    if (cb) {
+      im.addEventListener("load", () => { if (cb) cb(im); }, { once: true });
+      im.addEventListener("error", () => { im._failed = true; if (cb) cb(im); }, { once: true });
+    } else if (!im._errBound) {
+      im._errBound = true;
+      im.addEventListener("error", () => { im._failed = true; }, { once: true });
+    }
     if (!im.src) im.src = assetUrl("assets/" + file);
-    else if (im.complete && cb) cb(im);
     return im;
   }
   function sheepCanvas(pose, pet) {
@@ -619,6 +631,7 @@ function assetUrl(path) {
     const idleFile = posePrefix() + "_idle.png";
     const sheepIm = COLOR_IMG[idleFile];
     if (!sheepIm || !sheepIm.naturalWidth) {
+      if (sheepIm && (sheepIm._failed || (sheepIm.complete && !sheepIm.naturalWidth && sheepIm.src))) return;
       loadColorImg(idleFile, () => { paintLookPreviews(); renderLooksColors(); });
       return;
     }
@@ -634,7 +647,11 @@ function assetUrl(path) {
       if (!id) { img.src = sheep.toDataURL("image/png"); return; }
       const file = id === "collar" ? "costume_collar.png" : "costume_" + id + ".png";
       const cim = COLOR_IMG[file];
-      if (!cim || !cim.naturalWidth) { loadColorImg(file, paintLookPreviews); return; }
+      if (!cim || !cim.naturalWidth) {
+        if (cim && (cim._failed || (cim.complete && !cim.naturalWidth && cim.src))) return;
+        loadColorImg(file, paintLookPreviews);
+        return;
+      }
       const hat = MyPetColor.recolorCostumeImage(cim, id, costumeColorOf(id));
       const c = document.createElement("canvas");
       c.width = 133; c.height = 139;
@@ -896,7 +913,8 @@ function assetUrl(path) {
     preload() {
       const A = (typeof assetUrl === "function") ? (name) => assetUrl("assets/" + name) : (name) => "/assets/" + name;
       const img = (key, file) => this.load.image(key, A(file));
-      img("field", "field_meadow_bare.png");
+      const meadow = window.MyPetWorld && MyPetWorld.FIELDS && MyPetWorld.FIELDS.filter((f) => f.id === "meadow")[0];
+      img("field", (meadow && meadow.file) || "field_meadow.png");
       if (window.MyPetWorld) {
         MyPetWorld.FIELDS.forEach((f) => img("field_" + f.id, f.file));
       }
@@ -2757,14 +2775,20 @@ function assetUrl(path) {
   }
   function closeLooks() { $("looks").classList.add("hidden"); }
 
-  function openRehome() {
-    if (!state || !state.pet) return;
+  let rehomeIndex = null;
+  function openRehome(index) {
+    const pets = (state && state.pets) || [];
+    const i = (typeof index === "number") ? index
+      : (typeof state.activePet === "number" ? state.activePet : 0);
+    if (i < 0 || i >= pets.length) return;
+    rehomeIndex = i;
     closeLooks();
-    const name = state.pet.name || "This pet";
+    const name = (pets[i] && pets[i].name) || "This pet";
     if ($("rehomeConfirmLead")) $("rehomeConfirmLead").textContent = name + " can go to a new home.";
     if ($("rehomeConfirm")) $("rehomeConfirm").classList.remove("hidden");
   }
   function closeRehomeConfirm() {
+    rehomeIndex = null;
     if ($("rehomeConfirm")) $("rehomeConfirm").classList.add("hidden");
   }
   function closeRehomeBye() {
@@ -2773,18 +2797,20 @@ function assetUrl(path) {
     if (!leftover) openAdopt();
   }
   function confirmRehome() {
-    if (!state || !state.pet) return;
-    const name = state.pet.name || "This pet";
-    const i = typeof state.activePet === "number" ? state.activePet : 0;
-    const pets = state.pets || [];
+    const pets = (state && state.pets) || [];
+    const i = (typeof rehomeIndex === "number") ? rehomeIndex
+      : (typeof state.activePet === "number" ? state.activePet : 0);
     if (i < 0 || i >= pets.length) return;
+    const name = (pets[i] && pets[i].name) || "This pet";
+    const onSlots = viewSlot >= pets.length;
     pets.splice(i, 1);
     state.pets = pets;
+    rehomeIndex = null;
     closeRehomeConfirm();
     if (pets.length) {
       state.activePet = Math.min(i, pets.length - 1);
       state.pet = pets[state.activePet];
-      viewSlot = state.activePet;
+      viewSlot = onSlots ? pets.length : state.activePet;
       persistStaticPet();
       applySceneForPet();
       renderHud();
@@ -2900,8 +2926,6 @@ function assetUrl(path) {
       else if (act === "friend") openFriend();
     });
     $("looksClose").addEventListener("click", closeLooks);
-    const rehomeBtn = $("rehomeBtn");
-    if (rehomeBtn) rehomeBtn.addEventListener("click", openRehome);
     const rehomeNo = $("rehomeNo");
     if (rehomeNo) rehomeNo.addEventListener("click", closeRehomeConfirm);
     const rehomeYes = $("rehomeYes");
@@ -3133,19 +3157,39 @@ function assetUrl(path) {
     const grid = document.createElement("div");
     grid.className = "slot-grid";
     for (let i = 0; i < max; i++) {
-      const cell = document.createElement("button");
-      cell.type = "button";
-      let kind = "lock", label = "🔒";
-      if (i < n) { kind = "filled"; label = "🐾"; }
-      else if (i < unlocked) { kind = "plus"; label = "➕"; }
-      cell.className = "slot-cell " + kind + (viewSlot === i || (i >= n && viewSlot >= n && i === n) ? " here" : "");
-      cell.textContent = label;
-      cell.title = i < n
-        ? ((state.pets[i] && state.pets[i].name) || ("Pet " + (i + 1)))
-        : (i < unlocked ? "Adopt" : "Locked");
-      const idx = i < n ? i : n;
-      cell.addEventListener("click", () => goToSlot(idx));
-      grid.appendChild(cell);
+      const here = viewSlot === i || (i >= n && viewSlot >= n && i === n);
+      if (i < n) {
+        const wrap = document.createElement("div");
+        wrap.className = "slot-spot" + (here ? " here" : "");
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "slot-cell filled" + (here ? " here" : "");
+        cell.textContent = "🐾";
+        const name = (state.pets[i] && state.pets[i].name) || ("Pet " + (i + 1));
+        cell.title = name;
+        cell.setAttribute("aria-label", name);
+        const idx = i;
+        cell.addEventListener("click", () => goToSlot(idx));
+        const rh = document.createElement("button");
+        rh.type = "button";
+        rh.className = "slot-rehome";
+        rh.textContent = "🏡 Re-home";
+        rh.title = "Re-home " + name;
+        rh.setAttribute("aria-label", "Re-home " + name);
+        rh.addEventListener("click", (ev) => { ev.stopPropagation(); openRehome(idx); });
+        wrap.appendChild(cell);
+        wrap.appendChild(rh);
+        grid.appendChild(wrap);
+      } else {
+        const cell = document.createElement("button");
+        cell.type = "button";
+        const kind = i < unlocked ? "plus" : "lock";
+        cell.className = "slot-cell " + kind + (here ? " here" : "");
+        cell.textContent = i < unlocked ? "➕" : "🔒";
+        cell.title = i < unlocked ? "Adopt" : "Locked";
+        cell.addEventListener("click", () => goToSlot(n));
+        grid.appendChild(cell);
+      }
     }
     host.appendChild(grid);
   }
@@ -3590,6 +3634,7 @@ function assetUrl(path) {
       wearCollar: (id) => { if (pasture) pasture.wearCollar(id); },
       setCollar,
       openLooks,
+      paintLookPreviews,
       setPhase: (t) => {
         if (window.MyPetWorld) MyPetWorld.setForced({ t: t || null });
         applySky();
