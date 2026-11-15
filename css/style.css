@@ -684,20 +684,22 @@ body.sky-day .topbar {
 .species-row {
   position: relative;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 8px;
   margin-bottom: 8px;
 }
 .species-card, .soon-card {
   background: #fffaf3;
   border: 3px solid var(--line);
   border-radius: 16px;
-  padding: 6px 8px 6px;
+  padding: 4px 6px 6px;
   font: inherit; font-weight: 800; color: var(--ink);
   cursor: pointer;
-  width: 140px;
+  width: 96px;
 }
 .species-card img, .soon-card img {
-  width: 100%; height: 88px;
+  width: 100%; height: 64px;
   object-fit: contain;
   image-rendering: pixelated;
   display: block;
@@ -876,7 +878,40 @@ body.sky-day .topbar {
   .paper h1 { font-size: 1.55rem; }
   .paper { padding: 14px 10px 14px; }
   .paper button.swatch { width: 38px; height: 38px; }
-  .species-card { width: 128px; }
-  .species-card img { height: 78px; }
+  .species-card { width: 84px; }
+  .species-card img { height: 56px; }
   .pet-dots { bottom: calc(92px + env(safe-area-inset-bottom)); }
+}
+
+/* v11 item swap */
+.item-row { margin: 8px 0 12px; }
+.item-row .lab { font-weight: 800; font-size: 1rem; margin-bottom: 6px; }
+.item-picks { display: flex; gap: 8px; flex-wrap: wrap; }
+.item-pick {
+  flex: 1 1 28%;
+  min-width: 88px;
+  border: 3px solid #c9b59a;
+  border-radius: 14px;
+  background: #fffaf3;
+  padding: 8px 6px 6px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  color: #4a3426;
+}
+.item-pick img {
+  display: block;
+  width: 100%;
+  height: 64px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.item-pick .name { display: block; font-size: 0.85rem; margin-top: 2px; }
+.item-pick.on { border-color: var(--pink); box-shadow: 0 0 0 3px #f7c9d2; }
+#looks .looks-tabs .tab { font-size: 0.9rem; padding: 7px 6px; }
+@media (max-width: 420px) {
+  .item-pick { min-width: 76px; }
+  .item-pick img { height: 52px; }
+  .item-pick .name { font-size: 0.78rem; }
+  #looks .looks-tabs .tab { font-size: 0.85rem; padding: 7px 4px; }
 }
