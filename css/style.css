@@ -8,13 +8,51 @@
   --line: #c9a48a;
   --shadow: rgba(74, 52, 38, 0.18);
 }
+
+@font-face {
+  font-family: "Rowdies";
+  src: url("../fonts/rowdies-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Rowdies";
+  src: url("../fonts/rowdies-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lexend";
+  src: url("../fonts/lexend-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lexend";
+  src: url("../fonts/lexend-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Lexend";
+  src: url("../fonts/lexend-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
   margin: 0; padding: 0; height: 100%;
   background: var(--cream);
   color: var(--ink);
-  font-family: Nunito, "Segoe UI", sans-serif;
-  font-weight: 600;
+  font-family: "Lexend", "Segoe UI", sans-serif;
+  font-weight: 500;
+  font-synthesis: none;
   overflow: hidden;
   user-select: none;
 }
@@ -34,9 +72,9 @@ html, body {
   pointer-events: none;
   z-index: 5;
 }
-.who .pet-name { font-weight: 800; font-size: 1.35rem; letter-spacing: 0.02em; }
+.who .pet-name { font-weight: 600; font-size: 1.35rem; letter-spacing: 0.02em; }
 .who .mood { font-size: 0.95rem; opacity: 0.85; }
-.stats { display: flex; gap: 8px; align-items: center; font-size: 1.15rem; font-weight: 800; pointer-events: none; }
+.stats { display: flex; gap: 8px; align-items: center; font-size: 1.15rem; font-weight: 600; pointer-events: none; }
 .stats .test-btn { pointer-events: auto; }
 .stats span { background: var(--card); border: 2px solid var(--line); border-radius: 999px; padding: 4px 10px; }
 
@@ -56,7 +94,7 @@ html, body {
   border-radius: 14px;
   padding: 6px 2px 5px;
   color: var(--ink);
-  font: inherit; font-weight: 800; font-size: 0.72rem;
+  font: inherit; font-weight: 600; font-size: 0.72rem;
   cursor: pointer;
   box-shadow: 0 2px 0 var(--line);
 }
@@ -69,7 +107,7 @@ html, body {
   position: absolute; left: 50%; top: 64px; transform: translateX(-50%);
   z-index: 8; pointer-events: none;
   min-width: 0; max-width: 86%;
-  text-align: center; font-weight: 800; font-size: 1.15rem;
+  text-align: center; font-weight: 600; font-size: 1.15rem;
   background: var(--card); color: var(--ink);
   border: 3px solid var(--brown); border-radius: 16px;
   padding: 8px 16px;
@@ -81,7 +119,7 @@ html, body {
 #bubble {
   position: absolute; z-index: 7; pointer-events: none;
   background: #fff; border: 2px solid var(--ink); border-radius: 16px;
-  padding: 4px 10px; font-size: 1.1rem; font-weight: 800;
+  padding: 4px 10px; font-size: 1.1rem; font-weight: 600;
 }
 
 .overlay {
@@ -100,26 +138,26 @@ html, body {
   box-shadow: 0 10px 0 var(--shadow);
   text-align: center;
 }
-.card h1, .card h2 { margin: 0 0 6px; font-weight: 800; font-size: 2rem; }
+.card h1, .card h2 { margin: 0 0 6px; font-weight: 600; font-size: 2rem; }
 .card h2 { font-size: 1.6rem; }
 .lead { margin: 0 0 16px; font-size: 1.05rem; }
-.soon { color: var(--brown); font-weight: 800; }
+.soon { color: var(--brown); font-weight: 600; }
 .picks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
 .pick {
   background: #fff; border: 3px solid var(--line); border-radius: 16px;
-  padding: 8px; font: inherit; font-weight: 800; color: var(--ink); cursor: pointer;
+  padding: 8px; font: inherit; font-weight: 600; color: var(--ink); cursor: pointer;
 }
 .pick img { width: 100%; height: 110px; object-fit: contain; image-rendering: pixelated; display: block; }
 .pick.selected { border-color: var(--pink); box-shadow: 0 0 0 3px #f7c9d2; }
-.name-label { display: block; text-align: left; font-weight: 800; margin: 4px 0; }
+.name-label { display: block; text-align: left; font-weight: 600; margin: 4px 0; }
 #nameInput {
-  width: 100%; font: inherit; font-size: 1.3rem; font-weight: 800;
+  width: 100%; font: inherit; font-size: 1.3rem; font-weight: 600;
   padding: 10px 12px; border-radius: 12px;
   border: 3px solid var(--line); color: var(--ink); background: #fff;
   margin-bottom: 14px;
 }
 .big {
-  width: 100%; font: inherit; font-size: 1.25rem; font-weight: 800;
+  width: 100%; font: inherit; font-size: 1.25rem; font-weight: 600;
   padding: 12px; border-radius: 16px; border: 3px solid var(--brown);
   background: #f3b3be; color: var(--ink); cursor: pointer;
   box-shadow: 0 3px 0 var(--brown);
@@ -130,7 +168,7 @@ html, body {
 .looks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .look {
   background: #fff; border: 3px solid var(--line); border-radius: 16px;
-  padding: 8px; cursor: pointer; font: inherit; font-weight: 800; color: var(--ink);
+  padding: 8px; cursor: pointer; font: inherit; font-weight: 600; color: var(--ink);
 }
 .look img { width: 100%; height: 90px; object-fit: contain; image-rendering: pixelated; }
 .look.locked { opacity: 0.45; cursor: default; filter: grayscale(0.6); }
@@ -142,7 +180,7 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   background: var(--cream);
 }
-.boot-card { text-align: center; font-size: 1.8rem; font-weight: 800; }
+.boot-card { text-align: center; font-size: 1.8rem; font-weight: 600; }
 .boot-sheep { font-size: 4rem; animation: bob 1.2s ease-in-out infinite; }
 @keyframes bob {
   0%, 100% { transform: translateY(0); }
@@ -165,7 +203,7 @@ html, body, #app, #game {
   border-radius: 999px;
   padding: 4px 10px;
   font: inherit;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 0.85rem;
   color: var(--ink);
   cursor: pointer;
@@ -197,7 +235,7 @@ html, body, #app, #game {
   background: linear-gradient(90deg, #8fd3e8, #b7e3a0);
   transition: width 0.15s;
 }
-.meter-label { margin-top: 4px; font-weight: 800; font-size: 0.95rem; }
+.meter-label { margin-top: 4px; font-weight: 600; font-size: 0.95rem; }
 .bath-wrap {
   position: relative;
   width: 100%;
@@ -340,7 +378,7 @@ body.bathing { overflow: hidden; }
 
 /* Color swatches — big and few words */
 .swatch-row { margin: 8px 0 10px; }
-.swatch-row .lab { font-weight: 800; font-size: 0.95rem; margin-bottom: 6px; }
+.swatch-row .lab { font-weight: 600; font-size: 0.95rem; margin-bottom: 6px; }
 .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
 button.swatch {
   width: 52px; height: 52px; border-radius: 16px;
@@ -356,7 +394,7 @@ button.swatch.on {
 button.swatch:active { transform: translateY(2px); box-shadow: none; }
 .adopt-colors { margin: 8px 0 4px; }
 .looks-colors { margin-top: 12px; }
-.looks-colors .lab { font-weight: 800; }
+.looks-colors .lab { font-weight: 600; }
 
 /* Bath rinse / dry bits */
 .bath-actor.wet .actor-sheep { filter: saturate(0.88) brightness(0.97) hue-rotate(12deg); }
@@ -470,7 +508,7 @@ body.sky-day .topbar {
 }
 .looks-tabs .tab {
   flex: 1;
-  font: inherit; font-weight: 800; font-size: 1.05rem;
+  font: inherit; font-weight: 600; font-size: 1.05rem;
   padding: 8px 10px;
   border-radius: 14px;
   border: 3px solid var(--line);
@@ -495,7 +533,7 @@ body.sky-day .topbar {
   border-radius: 16px;
   padding: 6px;
   cursor: pointer;
-  font: inherit; font-weight: 800; color: var(--ink);
+  font: inherit; font-weight: 600; color: var(--ink);
 }
 .field-pick img {
   width: 100%; height: 96px;
@@ -614,8 +652,8 @@ body.sky-day .topbar {
 }
 .slot-plus { font-size: 3.2rem; line-height: 1; margin-bottom: 6px; }
 .slot-lock { font-size: 2.8rem; line-height: 1; margin-bottom: 6px; }
-.slot-title { font-weight: 800; font-size: 1.4rem; margin-bottom: 8px; }
-.slot-need { font-weight: 800; font-size: 1.05rem; margin: 0 0 10px; }
+.slot-title { font-weight: 600; font-size: 1.4rem; margin-bottom: 8px; }
+.slot-need { font-weight: 600; font-size: 1.05rem; margin: 0 0 10px; }
 .heart-bar {
   height: 18px;
   border-radius: 999px;
@@ -671,11 +709,11 @@ body.sky-day .topbar {
   image-rendering: pixelated;
   z-index: 2;
 }
-.paper h1 { margin: 0 0 4px; font-weight: 800; font-size: 1.8rem; position: relative; }
+.paper h1 { margin: 0 0 4px; font-weight: 600; font-size: 1.8rem; position: relative; }
 .paper .lead { margin: 0 0 8px; position: relative; }
 .paper-date {
   position: relative;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 1.05rem;
   background: #fff8;
   border: 2px dashed #c9a48a;
@@ -698,7 +736,7 @@ body.sky-day .topbar {
   border: 3px solid var(--line);
   border-radius: 16px;
   padding: 4px 6px 6px;
-  font: inherit; font-weight: 800; color: var(--ink);
+  font: inherit; font-weight: 600; color: var(--ink);
   cursor: pointer;
   width: 96px;
 }
@@ -711,7 +749,7 @@ body.sky-day .topbar {
 .species-card.on { border-color: var(--pink); box-shadow: 0 0 0 3px #f7c9d2; }
 .soon-label {
   position: relative;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 0.95rem;
   text-align: left;
   margin: 4px 2px 6px;
@@ -763,7 +801,7 @@ body.sky-day .topbar {
   border: 3px solid var(--line);
   border-radius: 14px;
   padding: 4px;
-  font: inherit; font-weight: 800; color: var(--ink);
+  font: inherit; font-weight: 600; color: var(--ink);
   cursor: pointer;
 }
 .adopt-field img {
@@ -829,12 +867,12 @@ body.sky-day .topbar {
 .journal-card h2, .journal-card h3 { text-align: center; }
 .journal-card h3 { margin: 12px 0 6px; font-size: 1.15rem; }
 .j-head { text-align: center; margin-bottom: 8px; }
-.j-name { font-weight: 800; font-size: 1.4rem; }
-.j-meta { font-weight: 800; font-size: 1rem; opacity: 0.9; }
+.j-name { font-weight: 600; font-size: 1.4rem; }
+.j-meta { font-weight: 600; font-size: 1rem; opacity: 0.9; }
 .j-miles { list-style: none; margin: 0; padding: 0; }
 .j-miles li {
   display: flex; align-items: baseline; gap: 8px;
-  font-weight: 800;
+  font-weight: 600;
   padding: 6px 0;
   border-bottom: 2px dashed #e2d0bc;
 }
@@ -854,12 +892,12 @@ body.sky-day .topbar {
   background: #efe4d4;
   image-rendering: auto;
 }
-.j-empty { text-align: center; font-weight: 800; opacity: 0.8; padding: 8px; }
+.j-empty { text-align: center; font-weight: 600; opacity: 0.8; padding: 8px; }
 
 /* Birthday */
 .bday-card { text-align: center; }
 .bday-emoji { font-size: 3rem; line-height: 1; margin-bottom: 4px; }
-.bday-bonus { font-weight: 800; font-size: 1.4rem; color: #c45a6a; margin: 0 0 12px; }
+.bday-bonus { font-weight: 600; font-size: 1.4rem; color: #c45a6a; margin: 0 0 12px; }
 
 #game.slide-left { animation: slideleft 0.28s ease; }
 #game.slide-right { animation: slideright 0.28s ease; }
@@ -889,7 +927,7 @@ body.sky-day .topbar {
 
 /* v11 item swap */
 .item-row { margin: 8px 0 12px; }
-.item-row .lab { font-weight: 800; font-size: 1rem; margin-bottom: 6px; }
+.item-row .lab { font-weight: 600; font-size: 1rem; margin-bottom: 6px; }
 .item-picks { display: flex; gap: 8px; flex-wrap: wrap; }
 .item-pick {
   flex: 1 1 28%;
@@ -900,7 +938,7 @@ body.sky-day .topbar {
   padding: 8px 6px 6px;
   cursor: pointer;
   font: inherit;
-  font-weight: 800;
+  font-weight: 600;
   color: #4a3426;
 }
 .item-pick img {
@@ -947,7 +985,7 @@ body.sky-day .topbar {
   border-radius: 10px;
   background: #fff;
   font-size: 0.95rem;
-  font-weight: 800;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -968,7 +1006,7 @@ body.sky-day .topbar {
   border: 2px solid var(--brown);
   border-radius: 8px;
   background: #f4c16e;
-  font-weight: 800;
+  font-weight: 600;
   font-size: 0.68rem;
   line-height: 1.15;
   padding: 4px 1px;
@@ -991,7 +1029,7 @@ body.sky-day .topbar {
   align-items: center;
   gap: 8px;
   margin: 8px 0;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--ink);
 }
 .dye-ico {
@@ -1052,3 +1090,85 @@ body.sky-day .topbar {
   .dye-name { font-size: 0.85rem; width: 3.2em; }
 }
 .paper .dye-bar input[type="range"] { height: 22px; }
+
+
+/* --- v23 typography: self-hosted Rowdies + Lexend, cream labels --- */
+.pet-name,
+.card h1, .card h2,
+.paper h1,
+.boot-card,
+.slot-title,
+.j-name,
+.soon,
+.bday-bonus {
+  font-family: "Rowdies", "Lexend", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.lead, .j-meta, .j-empty, .item-pick .name, .field-pick .name, .look .need {
+  font-weight: 400;
+}
+
+.who .pet-name {
+  display: inline-block;
+  font-family: "Rowdies", "Lexend", sans-serif;
+  font-weight: 700;
+  font-size: 1.28rem;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  background: var(--cream);
+  border: 2px solid var(--brown);
+  border-radius: 12px;
+  padding: 1px 10px 3px;
+  box-shadow: 0 1px 0 rgba(138, 90, 58, 0.28);
+  max-width: min(46vw, 230px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.who .mood {
+  display: inline-block;
+  font-family: "Lexend", sans-serif;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--ink);
+  background: var(--cream);
+  border: 2px solid var(--brown);
+  border-radius: 999px;
+  padding: 1px 8px 2px;
+  margin-top: 4px;
+  opacity: 1;
+  line-height: 1.3;
+}
+.stats span, .stats .test-btn {
+  background: var(--cream);
+  border: 2px solid var(--brown);
+  font-family: "Lexend", sans-serif;
+  font-weight: 600;
+  box-shadow: 0 1px 0 rgba(138, 90, 58, 0.2);
+}
+.meter-label, .name-label, .swatch-row .lab, .looks-colors .lab, .item-row .lab {
+  display: inline-block;
+  font-family: "Lexend", sans-serif;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--cream);
+  border: 2px solid var(--brown);
+  border-radius: 999px;
+  padding: 2px 10px;
+  box-shadow: 0 1px 0 rgba(138, 90, 58, 0.2);
+}
+.name-label { margin: 6px 0; }
+body.sky-night .who .pet-name,
+body.sky-night .mood {
+  color: var(--ink);
+  text-shadow: none;
+}
+@media (max-width: 500px) {
+  .who .pet-name { font-size: 1.12rem; max-width: min(42vw, 180px); padding: 1px 8px 2px; }
+  .who .mood { font-size: 0.75rem; padding: 0 7px 1px; }
+  .meter-label, .name-label, .swatch-row .lab, .looks-colors .lab, .item-row .lab {
+    font-size: 0.85rem; padding: 1px 8px;
+  }
+}
