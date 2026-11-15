@@ -503,8 +503,18 @@ function assetUrl(path) {
     }
   }
 
+  function petAllowsLooks(pet) {
+    pet = pet || (state && state.pet);
+    return !!(window.MyPetSpecies && MyPetSpecies.allowsLooks && MyPetSpecies.allowsLooks(pet));
+  }
+  function defaultPetName(petOrId) {
+    if (window.MyPetSpecies && MyPetSpecies.defaultNameOf) return MyPetSpecies.defaultNameOf(petOrId);
+    return "Biscuit";
+  }
+
   function grantStaticUnlocks() {
     if (!state || !state.pet) return [];
+    if (!petAllowsLooks(state.pet)) return [];
     const unlocked = Array.isArray(state.pet.unlocked) ? state.pet.unlocked.slice() : [];
     const newly = [];
     for (const u of EXTRA_UNLOCKS) {
@@ -654,6 +664,7 @@ function assetUrl(path) {
 
   async function setCollar(on) {
     if (!state || !state.pet) return;
+    if (!petAllowsLooks(state.pet)) return;
     grantStaticUnlocks();
     if (on && !(state.pet.unlocked || []).includes("collar")) {
       toast("Need 💗 12");
@@ -681,6 +692,16 @@ function assetUrl(path) {
     grid.innerHTML = "";
     const pet = state && state.pet;
     if (window.MyPetColor && pet) MyPetColor.migratePet(pet);
+    const lead = $("looksPane") && $("looksPane").querySelector(".lead");
+    if (pet && !petAllowsLooks(pet)) {
+      grid.style.display = "none";
+      if (lead) lead.textContent = "Pick a color for your pet.";
+      paintLookPreviews();
+      renderLooksColors();
+      return;
+    }
+    grid.style.display = "";
+    if (lead) lead.textContent = "Care for your pet to unlock these.";
     const unlocked = (pet && pet.unlocked) || [];
     const items = [
       { id: null, name: "No look", emoji: "✨", img: assetUrl("assets/sheep_idle.png"), at: 0, slot: "costume" },
@@ -937,7 +958,7 @@ function assetUrl(path) {
     });
     const unlocked = pet.unlocked || [];
     const rows = [];
-    if (pet.costume && unlocked.includes(pet.costume)) {
+    if (petAllowsLooks(pet) && pet.costume && unlocked.includes(pet.costume)) {
       rows.push({ id: pet.costume, label: ({ crown: "🌸 Crown", bow: "🎀 Bow", hat: "🎩 Hat", witch: "🧙 Hat" }[pet.costume] || "Color") });
     }
     if (pet.collar === "collar" && unlocked.includes("collar")) {
@@ -1304,6 +1325,7 @@ function assetUrl(path) {
     }
 
     wear(id) {
+      if (!petAllowsLooks()) id = null;
       this.sheep.costumeId = id || null;
       const tex = COSTUME_TEX[id];
       const live = tex && liveKey(tex);
@@ -1313,6 +1335,7 @@ function assetUrl(path) {
     }
 
     wearCollar(id) {
+      if (!petAllowsLooks()) id = null;
       this.sheep.collarId = id || null;
       const live = liveKey("costume_collar");
       if (id === "collar" && this.textures.exists(live)) this.collar.setTexture(live);
@@ -3589,6 +3612,13 @@ function assetUrl(path) {
     if (window.MyPetColor && MyPetColor.ensureDye) MyPetColor.ensureDye(pick);
     return pick;
   }
+  function syncAdoptNamePlaceholder() {
+    const el = $("nameInput");
+    if (!el) return;
+    const pick = window._adoptPick || defaultAdoptPick("sheep_valais");
+    el.placeholder = defaultPetName(pick.species || "sheep_valais");
+  }
+
   function renderSpeciesCards() {
     const row = $("speciesRow");
     if (!row) return;
@@ -3624,6 +3654,7 @@ function assetUrl(path) {
         const ac = $("adoptColors");
         if (ac) ac.dataset.dyeSig = "";
         bindAdoptColors();
+        syncAdoptNamePlaceholder();
         renderSpeciesCards();
         renderAdoptFields();
         refreshAdoptPreview();
@@ -3703,6 +3734,7 @@ function assetUrl(path) {
   function openAdopt() {
     prepareAdoptPaper();
     if ($("nameInput")) $("nameInput").value = "";
+    syncAdoptNamePlaceholder();
     if ($("adoptBtn")) $("adoptBtn").disabled = false;
     $("adopt").classList.remove("hidden");
   }
@@ -4098,8 +4130,9 @@ function assetUrl(path) {
   }
 
   async function onAdopt() {
-    const name = ($("nameInput").value || "Biscuit").trim().slice(0, 24);
     const pick = window._adoptPick || defaultAdoptPick("sheep_valais");
+    const typed = ($("nameInput").value || "").trim().slice(0, 24);
+    const name = typed || defaultPetName(pick.species || "sheep_valais");
     try {
       $("adoptBtn").disabled = true;
       await playStampAndConfetti();

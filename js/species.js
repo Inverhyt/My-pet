@@ -431,6 +431,7 @@
       id: "sheep_valais",
       name: "Valais sheep",
       short: "Valais",
+      defaultName: "Biscuit",
       emoji: "🐑",
       ready: true,
       prefix: "sheep",
@@ -453,6 +454,7 @@
       id: "fox",
       name: "Fox",
       short: "Fox",
+      defaultName: "Ember",
       emoji: "🦊",
       ready: true,
       prefix: "fox",
@@ -474,6 +476,7 @@
       id: "capybara",
       name: "Capybara",
       short: "Capy",
+      defaultName: "Yuzu",
       emoji: "🦫",
       ready: true,
       prefix: "capy",
@@ -495,6 +498,7 @@
       id: "rock",
       name: "Rock",
       short: "Rock",
+      defaultName: "Pebble",
       emoji: "🪨",
       ready: true,
       prefix: "rock",
@@ -517,6 +521,7 @@
       id: "dragon",
       name: "Dragon",
       short: "Dragon",
+      defaultName: "Minty",
       emoji: "🐉",
       ready: true,
       prefix: "dragon",
@@ -539,6 +544,7 @@
       id: "kiwi",
       name: "Kiwi bird",
       short: "Kiwi",
+      defaultName: "Kiki",
       emoji: "🥝",
       ready: true,
       prefix: "kiwi",
@@ -561,6 +567,7 @@
       id: "cat",
       name: "Cat",
       short: "Cat",
+      defaultName: "Marmalade",
       emoji: "🐱",
       ready: true,
       prefix: "cat",
@@ -582,6 +589,7 @@
       id: "dog",
       name: "Dog",
       short: "Pup",
+      defaultName: "Waffles",
       emoji: "🐶",
       ready: true,
       prefix: "dog",
@@ -603,6 +611,7 @@
       id: "duck",
       name: "Duck",
       short: "Duck",
+      defaultName: "Puddles",
       emoji: "🦆",
       ready: true,
       prefix: "duck",
@@ -625,6 +634,7 @@
       id: "crow",
       name: "Crow",
       short: "Crow",
+      defaultName: "Inky",
       emoji: "🐦‍⬛",
       ready: true,
       prefix: "crow",
@@ -647,6 +657,7 @@
       id: "rat",
       name: "Rat",
       short: "Rat",
+      defaultName: "Nibbles",
       emoji: "🐭",
       ready: true,
       prefix: "rat",
@@ -763,6 +774,14 @@
     const N = of(pet).NOSE || SHEEP_NOSE;
     return N[pose] || N.idle || SHEEP_NOSE.idle;
   }
+  function defaultNameOf(petOrId) {
+    const sp = of(petOrId);
+    return (sp && sp.defaultName) || "Biscuit";
+  }
+  function allowsLooks(petOrId) {
+    const sp = of(petOrId);
+    return !!(sp && sp.id === "sheep_valais");
+  }
   function findItem(slot, id) {
     const list = ITEMS[slot] || [];
     if (!id) return null;
@@ -786,6 +805,7 @@
   window.MyPetSpecies = {
     POSES, SPECIES, COMING_SOON, ITEMS, ITEM_SLOT_SPOT, ONSEN_PROPS, DEN_PROPS, HOME_DECOR,
     of, prefix, poseFile, poseTex, headOf, neckOf, noseOf,
+    defaultNameOf, allowsLooks,
     findItem, defaultItems, normalizeItems,
   };
 })();

@@ -106,11 +106,22 @@
     if (!pet) return pet;
     pet.id = pet.id || newId();
     pet.species = pet.species || "sheep_valais";
-    pet.name = pet.name || "Biscuit";
+    const defName = (window.MyPetSpecies && MyPetSpecies.defaultNameOf)
+      ? MyPetSpecies.defaultNameOf(pet) : "Biscuit";
+    const rawName = (pet.name == null ? "" : String(pet.name)).trim();
+    const isSheep = pet.species === "sheep_valais";
+    if (!rawName) pet.name = defName;
+    else if (!isSheep && rawName === "Biscuit") pet.name = defName;
+    else pet.name = rawName;
     pet.friendship = typeof pet.friendship === "number" ? pet.friendship : 0;
     pet.unlocked = Array.isArray(pet.unlocked) ? pet.unlocked.slice() : [];
-    if (pet.costume === undefined) pet.costume = null;
-    if (pet.collar === undefined) pet.collar = null;
+    if (!isSheep) {
+      pet.costume = null;
+      pet.collar = null;
+    } else {
+      if (pet.costume === undefined) pet.costume = null;
+      if (pet.collar === undefined) pet.collar = null;
+    }
     const sp = window.MyPetSpecies && MyPetSpecies.of(pet);
     const def = (sp && sp.defaults) || { wool: "white", face: "black", eyes: "white" };
     pet.wool = pet.wool || def.wool;
@@ -265,7 +276,7 @@
     const pet = normalizePet({
       id: newId(),
       species: opts.species || "sheep_valais",
-      name: opts.name || "Biscuit",
+      name: opts.name || ((window.MyPetSpecies && MyPetSpecies.defaultNameOf) ? MyPetSpecies.defaultNameOf(opts.species || "sheep_valais") : "Biscuit"),
       friendship: 0,
       unlocked: [],
       costume: null,
