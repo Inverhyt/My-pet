@@ -38,6 +38,141 @@
   const FACE_NAMES = { black: "Black", brown: "Brown", cream: "Cream" };
   const EYE_NAMES  = { white: "White", honey: "Honey", sky: "Sky", moss: "Moss", berry: "Berry" };
 
+
+  function pal(hex, hue, sat, lit, mode, ident) {
+    const o = { hex: hex, hue: hue || 0, sat: (sat == null ? 1 : sat), lit: (lit == null ? 1 : lit) };
+    if (mode) o.mode = mode;
+    if (ident) o.identity = true;
+    return o;
+  }
+  const FOX_FUR = {
+    orange: pal("#EC8C3A", 0, 1, 1, null, true),
+    rust:   pal("#C65A28", -10, 1.08, 0.92),
+    cream:  pal("#F0D4A8", 12, 0.45, 1.18),
+    cocoa:  pal("#8B5A3C", -8, 0.75, 0.72),
+    berry:  pal("#B44868", -40, 0.95, 0.95),
+    snow:   pal("#E8E4DC", 0, 0.18, 1.22),
+  };
+  const CAPY_FUR = {
+    sand:    pal("#BA8C60", 0, 1, 1, null, true),
+    tan:     pal("#C9A06A", 8, 0.9, 1.08),
+    caramel: pal("#C48A4A", -6, 1.05, 0.95),
+    cocoa:   pal("#8B5A3C", -4, 0.85, 0.8),
+    mocha:   pal("#7A5A48", 12, 0.7, 0.75),
+    cream:   pal("#E8D4B0", 10, 0.4, 1.2),
+  };
+  const ROCK_STONE = {
+    pebble: pal("#8A8E92", 0, 1, 1, "tint", true),
+    slate:  pal("#6A7A8C", 220, 0.22, 0.95, "tint"),
+    blush:  pal("#C49A9A", 8, 0.28, 1.05, "tint"),
+    sand:   pal("#C4B08A", 38, 0.25, 1.06, "tint"),
+    mossy:  pal("#7A9A78", 128, 0.25, 0.98, "tint"),
+    coal:   pal("#4A4A4E", 240, 0.08, 0.7, "tint"),
+  };
+  const DRAGON_BODY = {
+    mint:     pal("#8ED3BF", 0, 1, 1, null, true),
+    sky:      pal("#8EC8D8", 28, 1, 1.02),
+    pink:     pal("#E8A0B4", 185, 1.05, 1.02),
+    butter:   pal("#E8D48C", -110, 1.05, 1.08),
+    lavender: pal("#C0B0E0", 110, 0.95, 1),
+    cocoa:    pal("#A07858", -100, 0.85, 0.82),
+  };
+  const DRAGON_WINGS = {
+    lavender: pal("#B8A0D8", 0, 1, 1, null, true),
+    mint:     pal("#8ED3BF", -110, 1, 1.05),
+    pink:     pal("#E8A0C0", -80, 1, 1.05),
+    peach:    pal("#F0C0A8", -110, 0.9, 1.08),
+    sky:      pal("#98C8E8", 50, 1, 1.05),
+    grape:    pal("#8A6AB0", 15, 1.15, 0.9),
+  };
+  const KIWI_FEATHER = {
+    brown: pal("#8A5A38", 0, 1, 1, null, true),
+    tan:   pal("#C49A68", 8, 0.85, 1.12),
+    cocoa: pal("#6B3E24", -4, 0.95, 0.82),
+    olive: pal("#6E7A48", 35, 0.8, 0.9),
+    rust:  pal("#C45A28", -15, 1.1, 1),
+    cream: pal("#E0C8A0", 12, 0.4, 1.22),
+  };
+  const CAT_FUR = {
+    orange: pal("#E8A050", 0, 1, 1, null, true),
+    rust:   pal("#C45A28", -12, 1.08, 0.92),
+    cream:  pal("#F0D8B0", 10, 0.4, 1.2),
+    gray:   pal("#B0A8A0", 0, 0.12, 0.95),
+    cocoa:  pal("#8B5A3C", -8, 0.75, 0.75),
+    peach:  pal("#F0B898", -6, 0.7, 1.1),
+  };
+  const DOG_FUR = {
+    caramel: pal("#C48A50", 0, 1, 1, null, true),
+    cream:   pal("#E8D4B0", 10, 0.4, 1.2),
+    cocoa:   pal("#8B5A3C", -6, 0.85, 0.8),
+    rust:    pal("#C45A28", -14, 1.08, 0.95),
+    gray:    pal("#B0A8A0", 0, 0.12, 0.95),
+    peach:   pal("#E8B090", -8, 0.7, 1.08),
+  };
+  const DUCK_FEATHER = {
+    yellow: pal("#F5D04A", 0, 1, 1, null, true),
+    peach:  pal("#F0B878", -18, 0.9, 1.05),
+    white:  pal("#F4F0E4", 0, 0.12, 1.18),
+    mint:   pal("#A8E0B8", 90, 0.7, 1.05),
+    orange: pal("#F08C28", -28, 1.05, 1),
+    butter: pal("#F0E08C", 8, 0.85, 1.08),
+  };
+  const CROW_FEATHER = {
+    ink:    pal("#3A3A40", 0, 1, 1, "tint", true),
+    navy:   pal("#3A4A6A", 220, 0.28, 1.2, "tint"),
+    plum:   pal("#5A3A58", 290, 0.28, 1.18, "tint"),
+    cocoa:  pal("#5A3E30", 25, 0.28, 1.22, "tint"),
+    sage:   pal("#3E5648", 140, 0.22, 1.18, "tint"),
+    snow:   pal("#D8D4CE", 0, 0.06, 2.1, "tint"),
+  };
+  const RAT_FUR = {
+    gray:     pal("#A8A4A8", 0, 1, 1, null, true),
+    white:    pal("#F0ECE6", 0, 0.25, 1.28),
+    cocoa:    pal("#8B5A3C", 25, 0.55, 0.92),
+    pink:     pal("#E0B0B8", -20, 0.4, 1.08),
+    charcoal: pal("#5A585C", 0, 0.9, 0.68),
+    peach:    pal("#E8C0A8", 20, 0.4, 1.1),
+  };
+  const FOX_FUR_ORDER = ["orange", "rust", "cream", "cocoa", "berry", "snow"];
+  const CAPY_FUR_ORDER = ["sand", "tan", "caramel", "cocoa", "mocha", "cream"];
+  const ROCK_STONE_ORDER = ["pebble", "slate", "blush", "sand", "mossy", "coal"];
+  const DRAGON_BODY_ORDER = ["mint", "sky", "pink", "butter", "lavender", "cocoa"];
+  const DRAGON_WINGS_ORDER = ["lavender", "mint", "pink", "peach", "sky", "grape"];
+  const KIWI_FEATHER_ORDER = ["brown", "tan", "cocoa", "olive", "rust", "cream"];
+  const CAT_FUR_ORDER = ["orange", "rust", "cream", "gray", "cocoa", "peach"];
+  const DOG_FUR_ORDER = ["caramel", "cream", "cocoa", "rust", "gray", "peach"];
+  const DUCK_FEATHER_ORDER = ["yellow", "peach", "white", "mint", "orange", "butter"];
+  const CROW_FEATHER_ORDER = ["ink", "navy", "plum", "cocoa", "sage", "snow"];
+  const RAT_FUR_ORDER = ["gray", "white", "cocoa", "pink", "charcoal", "peach"];
+  const FOX_FUR_NAMES = { orange: "Orange", rust: "Rust", cream: "Cream", cocoa: "Cocoa", berry: "Berry", snow: "Snow" };
+  const CAPY_FUR_NAMES = { sand: "Sand", tan: "Tan", caramel: "Caramel", cocoa: "Cocoa", mocha: "Mocha", cream: "Cream" };
+  const ROCK_STONE_NAMES = { pebble: "Pebble", slate: "Slate", blush: "Blush", sand: "Sand", mossy: "Mossy", coal: "Coal" };
+  const DRAGON_BODY_NAMES = { mint: "Mint", sky: "Sky", pink: "Pink", butter: "Butter", lavender: "Lilac", cocoa: "Cocoa" };
+  const DRAGON_WINGS_NAMES = { lavender: "Lavender", mint: "Mint", pink: "Pink", peach: "Peach", sky: "Sky", grape: "Grape" };
+  const KIWI_FEATHER_NAMES = { brown: "Brown", tan: "Tan", cocoa: "Cocoa", olive: "Olive", rust: "Rust", cream: "Cream" };
+  const CAT_FUR_NAMES = { orange: "Orange", rust: "Rust", cream: "Cream", gray: "Gray", cocoa: "Cocoa", peach: "Peach" };
+  const DOG_FUR_NAMES = { caramel: "Caramel", cream: "Cream", cocoa: "Cocoa", rust: "Rust", gray: "Gray", peach: "Peach" };
+  const DUCK_FEATHER_NAMES = { yellow: "Yellow", peach: "Peach", white: "White", mint: "Mint", orange: "Orange", butter: "Butter" };
+  const CROW_FEATHER_NAMES = { ink: "Ink", navy: "Navy", plum: "Plum", cocoa: "Cocoa", sage: "Sage", snow: "Snow" };
+  const RAT_FUR_NAMES = { gray: "Gray", white: "White", cocoa: "Cocoa", pink: "Pink", charcoal: "Charcoal", peach: "Peach" };
+
+  const PALS = {
+    WOOL: { map: WOOL, order: WOOL_ORDER, names: WOOL_NAMES, fallback: "white" },
+    FACE: { map: FACE, order: FACE_ORDER, names: FACE_NAMES, fallback: "black" },
+    EYES: { map: EYES, order: EYE_ORDER,  names: EYE_NAMES,  fallback: "white" },
+    FOX_FUR: { map: FOX_FUR, order: FOX_FUR_ORDER, names: FOX_FUR_NAMES, fallback: "orange" },
+    CAPY_FUR: { map: CAPY_FUR, order: CAPY_FUR_ORDER, names: CAPY_FUR_NAMES, fallback: "sand" },
+    ROCK_STONE: { map: ROCK_STONE, order: ROCK_STONE_ORDER, names: ROCK_STONE_NAMES, fallback: "pebble" },
+    DRAGON_BODY: { map: DRAGON_BODY, order: DRAGON_BODY_ORDER, names: DRAGON_BODY_NAMES, fallback: "mint" },
+    DRAGON_WINGS: { map: DRAGON_WINGS, order: DRAGON_WINGS_ORDER, names: DRAGON_WINGS_NAMES, fallback: "lavender" },
+    KIWI_FEATHER: { map: KIWI_FEATHER, order: KIWI_FEATHER_ORDER, names: KIWI_FEATHER_NAMES, fallback: "brown" },
+    CAT_FUR: { map: CAT_FUR, order: CAT_FUR_ORDER, names: CAT_FUR_NAMES, fallback: "orange" },
+    DOG_FUR: { map: DOG_FUR, order: DOG_FUR_ORDER, names: DOG_FUR_NAMES, fallback: "caramel" },
+    DUCK_FEATHER: { map: DUCK_FEATHER, order: DUCK_FEATHER_ORDER, names: DUCK_FEATHER_NAMES, fallback: "yellow" },
+    CROW_FEATHER: { map: CROW_FEATHER, order: CROW_FEATHER_ORDER, names: CROW_FEATHER_NAMES, fallback: "ink" },
+    RAT_FUR: { map: RAT_FUR, order: RAT_FUR_ORDER, names: RAT_FUR_NAMES, fallback: "gray" },
+  };
+
   const HAT_DYE = ["80,130,90", "60,100,70"];
   const WITCH_GOLD = ["242,194,48", "184,134,11", "255,242,180"];
   const BOW_DYE = ["228,90,120", "246,150,168", "200,60,90"];
@@ -297,11 +432,194 @@
     return src;
   }
 
+
+
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    if (max === min) return [0, 0, l];
+    const d = max - min;
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    let h;
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0));
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    return [h * 60, s, l];
+  }
+  function hslToRgb(h, s, l) {
+    h = ((h % 360) + 360) % 360;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const hp = h / 60;
+    const x = c * (1 - Math.abs(hp % 2 - 1));
+    let r = 0, g = 0, b = 0;
+    if (hp < 1) { r = c; g = x; }
+    else if (hp < 2) { r = x; g = c; }
+    else if (hp < 3) { g = c; b = x; }
+    else if (hp < 4) { g = x; b = c; }
+    else if (hp < 5) { r = x; b = c; }
+    else { r = c; b = x; }
+    const m = l - c / 2;
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+  function inRange(v, a, b) { return v >= a && v <= b; }
+  function inHue(h, a, b) {
+    if (a <= b) return h >= a && h <= b;
+    return h >= a || h <= b; // wrap
+  }
+  function isBlushHsl(h, s, l, r, g, b) {
+    if (!(h <= 22 || h >= 338)) return false;
+    return s >= 0.2 && l >= 0.45 && l <= 0.9 && r >= g + 15 && r >= b + 15;
+  }
+  function isCreamHsl(h, s, l) {
+    if (l > 0.93) return true; // eye highlights / white
+    if (l > 0.82 && s < 0.48) return true;
+    if (l > 0.75 && s < 0.28) return true;
+    return false;
+  }
+  function inBand(h, s, l, band) {
+    if (!band) return false;
+    if (band.h && !inHue(h, band.h[0], band.h[1])) return false;
+    if (band.s && !inRange(s, band.s[0], band.s[1])) return false;
+    if (band.l && !inRange(l, band.l[0], band.l[1])) return false;
+    if (band.maxS != null && s > band.maxS) return false;
+    return true;
+  }
+
+  const HUE_SPEC = {
+    fox:      { body: { h: [8, 46], s: [0.35, 1], l: [0.18, 0.82] } },
+    capybara: { body: { h: [12, 45], s: [0.25, 1], l: [0.18, 0.78] } },
+    rock:     { body: { s: [0, 0.18], l: [0.18, 0.8] }, keep: { h: [70, 160], s: [0.2, 1] } }, // moss stays
+    dragon:   { body: { h: [135, 180], s: [0.15, 1], l: [0.28, 0.88] }, secondary: { h: [240, 320], s: [0.12, 1], l: [0.25, 0.88] } },
+    kiwi:     { body: { h: [10, 42], s: [0.25, 1], l: [0.16, 0.62] }, keep: { h: [22, 55], s: [0.25, 1], l: [0.48, 0.8] } }, // beak/feet
+    cat:      { body: { h: [8, 46], s: [0.3, 1], l: [0.18, 0.82] } },
+    dog:      { body: { h: [8, 45], s: [0.25, 1], l: [0.18, 0.8] } },
+    duck:     { body: { h: [38, 70], s: [0.35, 1], l: [0.35, 0.92] }, keep: { h: [10, 36], s: [0.4, 1] } }, // beak/feet
+    crow:     { body: { s: [0, 0.22], l: [0.08, 0.72] } },
+    rat:      { body: { h: [200, 320], s: [0, 0.25], l: [0.2, 0.8] }, body2: { s: [0, 0.18], l: [0.2, 0.8] } }, // gray may have any weak hue
+  };
+
+  function applyPreset(r, g, b, preset) {
+    if (!preset || preset.identity) return [r, g, b];
+    let [h, s, l] = rgbToHsl(r, g, b);
+    if (preset.mode === "tint") {
+      h = preset.hue;
+      const t = preset.sat || 0.2;
+      s = Math.min(1, s * 0.35 + t);
+      l = Math.max(0.03, Math.min(0.97, l * (preset.lit == null ? 1 : preset.lit)));
+    } else {
+      h = h + (preset.hue || 0);
+      s = Math.max(0, Math.min(1, s * (preset.sat == null ? 1 : preset.sat)));
+      l = Math.max(0.03, Math.min(0.97, l * (preset.lit == null ? 1 : preset.lit)));
+    }
+    return hslToRgb(h, s, l);
+  }
+
+  function slotOfPixel(h, s, l, spec) {
+    if (spec.keep && inBand(h, s, l, spec.keep)) return null;
+    if (spec.secondary && inBand(h, s, l, spec.secondary)) return "face";
+    if (spec.body && inBand(h, s, l, spec.body)) return "wool";
+    if (spec.body2 && inBand(h, s, l, spec.body2)) return "wool";
+    return null;
+  }
+
+  function recolorHueImage(img, colors, speciesId) {
+    const src = imageToCanvas(img);
+    const spec = HUE_SPEC[speciesId];
+    if (!spec) return src;
+    const ctx = src.getContext("2d", { willReadFrequently: true });
+    const w = src.width, h = src.height;
+    const image = ctx.getImageData(0, 0, w, h);
+    const data = image.data;
+    const sp = window.MyPetSpecies && MyPetSpecies.of(speciesId);
+    const slots = (sp && sp.colorSlots) || [];
+    const presets = { wool: null, face: null };
+    slots.forEach((slot) => {
+      const pal = PALS[slot.pal];
+      if (!pal) return;
+      const id = (colors && colors[slot.key]) || (sp && sp.defaults && sp.defaults[slot.key]) || pal.fallback;
+      const entry = pal.map[id];
+      if (entry && !entry.identity && (entry.hue || entry.sat !== 1 || entry.lit !== 1 || entry.mode)) {
+        presets[slot.key] = entry;
+      }
+    });
+    const eyesId = (colors && colors.eyes) || "white";
+    const eyeRgb = EYES[eyesId] && EYES[eyesId].rgb;
+    const need = presets.wool || presets.face || eyeRgb;
+    if (!need) return src;
+    for (let p = 0; p < w * h; p++) {
+      const i = p * 4, a = data[i + 3];
+      if (a === 0) continue;
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const [hh, ss, ll] = rgbToHsl(r, g, b);
+      if (ll < 0.12) continue; // outline / pupils
+      if (isBlushHsl(hh, ss, ll, r, g, b)) continue;
+      if (isCreamHsl(hh, ss, ll)) {
+        // still allow tinting eye highlights when a dyed eye is chosen
+        if (eyeRgb && ll > 0.9 && ss < 0.2) {
+          // only touch tiny bright pixels that sit next to dark (eye shine)
+          const x = p % w, y = (p / w) | 0;
+          let nearDark = false;
+          for (let dy = -2; dy <= 2 && !nearDark; dy++) {
+            for (let dx = -2; dx <= 2; dx++) {
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+              const j = (ny * w + nx) * 4;
+              if (data[j + 3] < 128) continue;
+              const L = lum(data[j], data[j + 1], data[j + 2]);
+              if (L < 50) { nearDark = true; break; }
+            }
+          }
+          if (nearDark) {
+            data[i] = Math.min(255, eyeRgb[0] + 45);
+            data[i + 1] = Math.min(255, eyeRgb[1] + 40);
+            data[i + 2] = Math.min(255, eyeRgb[2] + 40);
+          }
+        }
+        continue;
+      }
+      const slot = slotOfPixel(hh, ss, ll, spec);
+      const pres = slot && presets[slot];
+      if (pres) {
+        const n = applyPreset(r, g, b, pres);
+        data[i] = n[0]; data[i + 1] = n[1]; data[i + 2] = n[2];
+      }
+    }
+    ctx.putImageData(image, 0, 0);
+    return src;
+  }
+
+  function recolorPetImage(img, colors, species) {
+    const id = (species && typeof species === "object") ? species.species || species.id : species;
+    if (!id || id === "sheep_valais") return recolorSheepImage(img, colors);
+    return recolorHueImage(img, colors, id);
+  }
+
+  function palettesFor(pet) {
+    const sp = window.MyPetSpecies && MyPetSpecies.of(pet);
+    if (sp && sp.colorSlots && sp.colorSlots.length) {
+      const out = { dWool: sp.defaults && sp.defaults.wool, dFace: sp.defaults && sp.defaults.face, dEyes: (sp.defaults && sp.defaults.eyes) || "white" };
+      sp.colorSlots.forEach((slot) => {
+        const pal = PALS[slot.pal];
+        if (!pal) return;
+        if (slot.key === "wool") out.wool = pal.map;
+        if (slot.key === "face") out.face = pal.map;
+        if (slot.key === "eyes") out.eyes = pal.map;
+      });
+      if (!out.wool) out.wool = WOOL;
+      if (!out.face) out.face = FACE;
+      if (!out.eyes) out.eyes = EYES;
+      return out;
+    }
+    return { wool: WOOL, face: FACE, eyes: EYES, dWool: "white", dFace: "black", dEyes: "white" };
+  }
+
   function migratePet(pet) {
     if (!pet) return pet;
-    if (!WOOL[pet.wool]) pet.wool = "white";
-    if (!FACE[pet.face]) pet.face = "black";
-    if (!EYES[pet.eyes]) pet.eyes = "white";
+    const pal = palettesFor(pet);
+    if (!pal.wool[pet.wool]) pet.wool = pal.dWool;
+    if (pet.face && pal.face && !pal.face[pet.face]) pet.face = pal.dFace;
+    if (!pal.eyes[pet.eyes]) pet.eyes = pal.dEyes;
     if (!pet.costumeColors || typeof pet.costumeColors !== "object") pet.costumeColors = {};
     return pet;
   }
@@ -313,7 +631,12 @@
 
   root.MyPetColor = {
     HUT, HUT_ORDER, HUT_NAMES, DEFAULT_SWATCH,
-    WOOL, FACE, EYES, WOOL_ORDER, FACE_ORDER, EYE_ORDER, WOOL_NAMES, FACE_NAMES, EYE_NAMES,
-    migratePet, recolorSheepImage, recolorCostumeImage, imageToCanvas, swatchHex,
+    WOOL, FACE, EYES, PALS,
+    WOOL_ORDER, FACE_ORDER, EYE_ORDER,
+    WOOL_NAMES, FACE_NAMES, EYE_NAMES,
+    FOX_FUR, CAPY_FUR, ROCK_STONE, DRAGON_BODY, DRAGON_WINGS,
+    KIWI_FEATHER, CAT_FUR, DOG_FUR, DUCK_FEATHER, CROW_FEATHER, RAT_FUR,
+    migratePet, recolorSheepImage, recolorHueImage, recolorPetImage, recolorCostumeImage, imageToCanvas, swatchHex, palettesFor,
   };
 })(typeof window !== "undefined" ? window : this);
+

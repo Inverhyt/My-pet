@@ -5,18 +5,20 @@
   const SLOT_STEP = 60;
   const MAX_SLOTS = 8;
   const PHOTO_CAP = 12;
-  const SPECIES = {
+  const SPECIES = (window.MyPetSpecies && MyPetSpecies.SPECIES) || {
     sheep_valais: { id: "sheep_valais", name: "Valais sheep", short: "Valais", emoji: "🐑", ready: true },
+    capybara: { id: "capybara", name: "Capybara", short: "Capy", emoji: "🦫", ready: true },
+    fox: { id: "fox", name: "Fox", short: "Fox", emoji: "🦊", ready: true },
+    rock: { id: "rock", name: "Rock", short: "Rock", emoji: "🪨", ready: true },
+    dragon: { id: "dragon", name: "Dragon", short: "Dragon", emoji: "🐉", ready: true },
+    kiwi: { id: "kiwi", name: "Kiwi bird", short: "Kiwi", emoji: "🥝", ready: true },
+    cat: { id: "cat", name: "Cat", short: "Cat", emoji: "🐱", ready: true },
+    dog: { id: "dog", name: "Dog", short: "Pup", emoji: "🐶", ready: true },
+    duck: { id: "duck", name: "Duck", short: "Duck", emoji: "🦆", ready: true },
+    crow: { id: "crow", name: "Crow", short: "Crow", emoji: "🐦‍⬛", ready: true },
+    rat: { id: "rat", name: "Rat", short: "Rat", emoji: "🐭", ready: true },
   };
-  const COMING_SOON = [
-    { id: "fox", name: "Fox", emoji: "🦊", file: "soon_fox.png" },
-    { id: "rock", name: "Rock", emoji: "🪨", file: "soon_rock.png" },
-    { id: "capybara", name: "Capybara", emoji: "🐾", file: "soon_capybara.png" },
-    { id: "dragon", name: "Dragon", emoji: "🐉", file: "soon_dragon.png" },
-    { id: "kiwi", name: "Kiwi bird", emoji: "🥝", file: "soon_kiwi.png" },
-    { id: "cat", name: "Cat", emoji: "🐱", file: "soon_cat.png" },
-    { id: "dog", name: "Dog", emoji: "🐶", file: "soon_dog.png" },
-  ];
+  const COMING_SOON = (window.MyPetSpecies && MyPetSpecies.COMING_SOON) || [];
   const HEART_MARKS = [8, 12, 16, 20, 28, 30, 40, 50, 75, 100, 135, 150, 195, 200];
   const LOOK_MILESTONES = {
     crown: { label: "Crown look", emoji: "👑" },
@@ -109,11 +111,14 @@
     pet.unlocked = Array.isArray(pet.unlocked) ? pet.unlocked.slice() : [];
     if (pet.costume === undefined) pet.costume = null;
     if (pet.collar === undefined) pet.collar = null;
-    pet.wool = pet.wool || "white";
-    pet.face = pet.face || "black";
-    pet.eyes = pet.eyes || "white";
+    const sp = window.MyPetSpecies && MyPetSpecies.of(pet);
+    const def = (sp && sp.defaults) || { wool: "white", face: "black", eyes: "white" };
+    pet.wool = pet.wool || def.wool;
+    pet.face = pet.face || def.face;
+    pet.eyes = pet.eyes || def.eyes;
     pet.costumeColors = pet.costumeColors || {};
-    pet.fieldTheme = pet.fieldTheme || "meadow";
+    pet.fieldTheme = pet.fieldTheme || (sp && sp.defaultField) || "meadow";
+    if (window.MyPetSpecies) MyPetSpecies.normalizeItems(pet);
     if (!isRealDate(pet.created_at)) pet.created_at = Date.now();
     if (!(pet.birthday && isRealDate(pet.birthday))) {
       pet.birthday = createdToYmd(pet.created_at);
@@ -248,6 +253,8 @@
   function makePet(opts) {
     opts = opts || {};
     const today = pacificYmd(new Date());
+    const sp = window.MyPetSpecies && MyPetSpecies.of(opts.species);
+    const def = (sp && sp.defaults) || { wool: "white", face: "black", eyes: "white" };
     const pet = normalizePet({
       id: newId(),
       species: opts.species || "sheep_valais",
@@ -256,11 +263,12 @@
       unlocked: [],
       costume: null,
       collar: null,
-      wool: opts.wool || "white",
-      face: opts.face || "black",
-      eyes: opts.eyes || "white",
+      wool: opts.wool || def.wool,
+      face: opts.face || def.face,
+      eyes: opts.eyes || def.eyes,
       costumeColors: {},
-      fieldTheme: opts.fieldTheme || "meadow",
+      fieldTheme: opts.fieldTheme || (sp && sp.defaultField) || "meadow",
+      items: opts.items || (window.MyPetSpecies && MyPetSpecies.defaultItems({ species: opts.species })),
       created_at: Date.now(),
       birthday: opts.birthday || today,
       journal: emptyJournal(),

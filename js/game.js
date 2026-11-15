@@ -2,7 +2,7 @@
 function assetUrl(path) {
   path = String(path || "").replace(/^\/+/, "");
   const base = (typeof window.ASSET_BASE === "string") ? window.ASSET_BASE + path : path;
-  const v = window.MYPET_ASSET_V || "10";
+  const v = window.MYPET_ASSET_V || "11";
   return base + (base.indexOf("?") >= 0 ? "&" : "?") + "v=" + v;
 }
 
@@ -151,7 +151,7 @@ function assetUrl(path) {
     syncActivePet();
     try {
       const data = {
-        version: 10,
+        version: 11,
         pet: state.pet || null,
         pets: state.pets || [],
         activePet: state.activePet || 0,
@@ -217,9 +217,10 @@ function assetUrl(path) {
     persistStaticPet();
   }
 
-  function petColors() {
-    const p = (state && state.pet) || {};
-    return { wool: p.wool || "white", face: p.face || "black", eyes: p.eyes || "white" };
+  function petColors(pet) {
+    const p = pet || (state && state.pet) || {};
+    const def = (window.MyPetSpecies && MyPetSpecies.of(p).defaults) || { wool: "white", face: "black", eyes: "white" };
+    return { wool: p.wool || def.wool, face: p.face || def.face, eyes: p.eyes || def.eyes };
   }
   function costumeColorOf(id) {
     const map = (state && state.pet && state.pet.costumeColors) || {};
@@ -228,6 +229,51 @@ function assetUrl(path) {
   function liveKey(key) { return key ? "_c_" + key : key; }
 
   const SHEEP_KEYS = ["idle", "walk1", "walk2", "walk3", "walk4", "eat", "drink", "happy", "sleep"];
+  const ITEM_FILES = [
+    "item_water_trough.png", "item_basin.png", "item_hottub.png",
+    "item_hay_trough.png", "item_veggie_bowl.png",
+    "item_hay_bed.png", "item_straw_mat.png",
+    "prop_bamboo.png", "prop_reeds.png", "prop_stones.png", "prop_pond.png",
+    "prop_den.png", "prop_log.png",
+    "yuzu.png", "orange.png",
+  ];
+
+  function currentSpecies() {
+    return (window.MyPetSpecies && MyPetSpecies.of(state && state.pet)) || null;
+  }
+  function posePrefix(pet) {
+    return (window.MyPetSpecies && MyPetSpecies.prefix(pet || (state && state.pet))) || "sheep";
+  }
+  function posePrefixes() {
+    const out = ["sheep"];
+    const all = window.MyPetSpecies && MyPetSpecies.SPECIES;
+    if (all) {
+      Object.keys(all).forEach((id) => {
+        const pre = all[id] && all[id].prefix;
+        if (pre && out.indexOf(pre) < 0) out.push(pre);
+      });
+    }
+    return out;
+  }
+  function headAt(pose, pet) {
+    if (window.MyPetSpecies) return MyPetSpecies.headOf(pet || (state && state.pet), pose);
+    return HEAD[pose] || HEAD.idle;
+  }
+  function neckAt(pose, pet) {
+    if (window.MyPetSpecies) return MyPetSpecies.neckOf(pet || (state && state.pet), pose);
+    return NECK[pose] || NECK.idle;
+  }
+  function noseAt(pose, pet) {
+    if (window.MyPetSpecies) return MyPetSpecies.noseOf(pet || (state && state.pet), pose);
+    return { x: -44, y: pose === "happy" ? -70 : -66 };
+  }
+  function recolorPet(img, colors, pet) {
+    if (!img || !window.MyPetColor) return null;
+    const who = pet || (state && state.pet);
+    const sp = who && who.species;
+    if (MyPetColor.recolorPetImage) return MyPetColor.recolorPetImage(img, colors || petColors(), sp);
+    return MyPetColor.recolorSheepImage(img, colors || petColors());
+  }
   const COLOR_IMG = {};
   function loadColorImg(file, cb) {
     if (COLOR_IMG[file] && COLOR_IMG[file].complete && COLOR_IMG[file].naturalWidth) {
@@ -242,15 +288,16 @@ function assetUrl(path) {
     else if (im.complete && cb) cb(im);
     return im;
   }
-  function sheepCanvas(pose) {
-    const file = pose.indexOf("sheep_") === 0 ? pose + ".png" : "sheep_" + pose + ".png";
+  function sheepCanvas(pose, pet) {
+    const file = posePrefix(pet) + "_" + pose + ".png";
     const im = COLOR_IMG[file];
     if (!im || !im.naturalWidth || !window.MyPetColor) return null;
-    return MyPetColor.recolorSheepImage(im, petColors());
+    return recolorPet(im, petColors(pet), pet);
   }
-  function sheepDataUrl(pose) {
-    const c = sheepCanvas(pose);
-    return c ? c.toDataURL("image/png") : assetUrl("assets/" + (pose.indexOf("sheep_") === 0 ? pose + ".png" : "sheep_" + pose + ".png"));
+  function sheepDataUrl(pose, pet) {
+    const c = sheepCanvas(pose, pet);
+    const file = posePrefix(pet) + "_" + pose + ".png";
+    return c ? c.toDataURL("image/png") : assetUrl("assets/" + file);
   }
   function costumeDataUrl(id) {
     const file = (id === "collar" ? "costume_collar" : (COSTUME_TEX[id] || ("costume_" + id))) + ".png";
@@ -260,7 +307,11 @@ function assetUrl(path) {
     return MyPetColor.recolorCostumeImage(im, kind, costumeColorOf(id)).toDataURL("image/png");
   }
   function preloadColorImages(done) {
-    const files = SHEEP_KEYS.map((k) => "sheep_" + k + ".png").concat([
+    const speciesFiles = [];
+    posePrefixes().forEach((pre) => {
+      SHEEP_KEYS.forEach((k) => speciesFiles.push(pre + "_" + k + ".png"));
+    });
+    const files = speciesFiles.concat([
       "costume_crown.png", "costume_bow.png", "costume_hat.png", "costume_witch.png", "costume_collar.png",
     ]);
     let left = files.length;
@@ -270,10 +321,14 @@ function assetUrl(path) {
   function applyPetLook() {
     if (!pasture || !pasture.textures) return;
     const sc = pasture;
-    if (!sc._baseImgs) {
-      sc._baseImgs = {};
+    const spId = (state && state.pet && state.pet.species) || "sheep_valais";
+    const prefix = posePrefix();
+    if (!sc._baseImgs) sc._baseImgs = {};
+    if (sc._baseSpecies !== spId) {
+      sc._baseSpecies = spId;
       SHEEP_KEYS.forEach((k) => {
-        const tex = sc.textures.get(k);
+        const texKey = prefix + "_" + k;
+        const tex = sc.textures.exists(texKey) ? sc.textures.get(texKey) : sc.textures.get(k);
         if (tex && tex.getSourceImage) {
           const src = tex.getSourceImage();
           const c = document.createElement("canvas");
@@ -282,6 +337,9 @@ function assetUrl(path) {
           sc._baseImgs[k] = c;
         }
       });
+    }
+    if (!sc._costumeBases) {
+      sc._costumeBases = true;
       ["costume_crown", "costume_bow", "costume_hat", "costume_witch", "costume_collar"].forEach((k) => {
         const tex = sc.textures.get(k);
         if (tex && tex.getSourceImage) {
@@ -312,7 +370,7 @@ function assetUrl(path) {
     if (window.MyPetColor) {
       SHEEP_KEYS.forEach((k) => {
         const base = sc._baseImgs[k];
-        if (base) paint(k, MyPetColor.recolorSheepImage(base, petColors()));
+        if (base) paint(k, recolorPet(base, petColors()));
       });
       const map = { crown: "costume_crown", bow: "costume_bow", hat: "costume_hat", witch: "costume_witch", collar: "costume_collar" };
       Object.keys(map).forEach((id) => {
@@ -539,12 +597,13 @@ function assetUrl(path) {
 
   function paintLookPreviews() {
     if (!window.MyPetColor) return;
-    const sheepIm = COLOR_IMG["sheep_idle.png"];
+    const idleFile = posePrefix() + "_idle.png";
+    const sheepIm = COLOR_IMG[idleFile];
     if (!sheepIm || !sheepIm.naturalWidth) {
-      loadColorImg("sheep_idle.png", () => { paintLookPreviews(); renderLooksColors(); });
+      loadColorImg(idleFile, () => { paintLookPreviews(); renderLooksColors(); });
       return;
     }
-    const sheep = MyPetColor.recolorSheepImage(sheepIm, petColors());
+    const sheep = recolorPet(sheepIm, petColors());
     const grid = $("looksGrid");
     if (!grid) return;
     const btns = grid.querySelectorAll(".look");
@@ -568,7 +627,7 @@ function assetUrl(path) {
       const scale = 1;
       const feetY = (139 - sheep.height) / 2 + sheep.height;
       const feetX = 133 / 2;
-      const sit = id === "collar" ? (NECK.idle || { x: -16, y: -28 }) : (HEAD.idle || { x: -16, y: -92 });
+      const sit = id === "collar" ? neckAt("idle") : headAt("idle");
       const nudge = id === "collar" ? { x: 0, y: 0 } : (COSTUME_NUDGE[id] || { x: 0, y: 0 });
       const mul = id === "collar" ? 1 : (COSTUME_SCALE[id] == null ? 1.08 : COSTUME_SCALE[id]);
       const dx = feetX + (sit.x + nudge.x) * scale;
@@ -662,12 +721,15 @@ function assetUrl(path) {
     preload() {
       const A = (typeof assetUrl === "function") ? (name) => assetUrl("assets/" + name) : (name) => "/assets/" + name;
       const img = (key, file) => this.load.image(key, A(file));
-      img("field", "field_meadow.png");
+      img("field", "field_meadow_bare.png");
       if (window.MyPetWorld) {
         MyPetWorld.FIELDS.forEach((f) => img("field_" + f.id, f.file));
       }
       img("wx_drop", "wx_drop.png");
       img("wx_flake", "wx_flake.png");
+      posePrefixes().forEach((pre) => {
+        SHEEP_KEYS.forEach((k) => img(pre + "_" + k, pre + "_" + k + ".png"));
+      });
       img("idle", "sheep_idle.png");
       img("walk1", "sheep_walk1.png");
       img("walk2", "sheep_walk2.png");
@@ -677,6 +739,7 @@ function assetUrl(path) {
       img("drink", "sheep_drink.png");
       img("happy", "sheep_happy.png");
       img("sleep", "sheep_sleep.png");
+      ITEM_FILES.forEach((f) => img(f.slice(0, -4), f));
       img("blanket", "blanket.png");
       img("costume_crown", "costume_crown.png");
       img("costume_bow", "costume_bow.png");
@@ -755,6 +818,8 @@ function assetUrl(path) {
       this.wearCollar(state.pet && state.pet.collar);
       applyBirthdayDecor();
       this.placePark();
+      this.placeCareItems();
+      this.placeHomeDecor();
 
       this.field.on("pointerdown", (p) => this.onTap(p));
       this.input.addPointer(2);
@@ -772,7 +837,7 @@ function assetUrl(path) {
       this.applyWorld(true);
       this.time.addEvent({ delay: 1000, loop: true, callback: () => this.applyWorld(false) });
 
-      this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, "Tap the trough, water, hay, or a flower", {
+      this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, "Tap the food, water, bed, or a flower", {
         fontFamily: "Nunito, sans-serif", fontSize: "16px", color: "#4a3426",
         backgroundColor: "#fffaf3cc", padding: { x: 8, y: 4 },
       }).setOrigin(0.5, 0).setDepth(20);
@@ -838,7 +903,7 @@ function assetUrl(path) {
       const id = this.sheep.costumeId;
       if (id && COSTUME_TEX[id] && this.costume) {
         const pose = this.poseName();
-        const head = HEAD[pose] || HEAD.idle;
+        const head = headAt(pose);
         const n = (pose === "sleep"
           ? (COSTUME_NUDGE_SLEEP[id] || { x: 0, y: 0 })
           : (COSTUME_NUDGE[id] || { x: 0, y: 0 }));
@@ -852,7 +917,7 @@ function assetUrl(path) {
       const cid = this.sheep.collarId;
       if (cid === "collar" && this.collar) {
         const pose = this.poseName();
-        const neck = NECK[pose] || NECK.idle;
+        const neck = neckAt(pose);
         pin(this.collar, neck.x, neck.y, 1, { x: 0.5, y: 1 }, 3);
         this.collar.setVisible(true);
       } else if (this.collar) {
@@ -866,18 +931,28 @@ function assetUrl(path) {
           && viewSlot === state.activePet;
         if (party) {
           const pose = this.poseName();
-          const head = HEAD[pose] || HEAD.idle;
+          const head = headAt(pose);
           pin(this.partyHat, head.x, head.y - 10, 1.22, { x: 0.5, y: 1 }, 5);
           this.partyHat.setVisible(true);
         } else {
           this.partyHat.setVisible(false);
         }
       }
+      if (this.moodItem && this.moodItem.active) {
+        if (this.mode === "idle") {
+          const head = headAt("idle");
+          pin(this.moodItem, head.x + 6, head.y + 8, 1, { x: 0.5, y: 1 }, 6);
+          this.moodItem.setVisible(true);
+        } else {
+          this.moodItem.setVisible(false);
+        }
+      }
       const bf = this._perchedBf;
       if (bf && bf.active) {
         const pose = this.poseName();
-        const noseY = pose === "happy" ? -70 : -66;
-        const noseX = -44;
+        const nose = noseAt(pose);
+        const noseY = nose.y;
+        const noseX = nose.x;
         const flip = this.sheep.flipX ? -1 : 1;
         const rad = (this.sheep.angle || 0) * Math.PI / 180;
         const lx = noseX * Math.abs(this.sheep.scaleX) * flip;
@@ -921,6 +996,7 @@ function assetUrl(path) {
     }
 
     walkTo(fx, fy, then) {
+      if (this.clearMood) this.clearMood();
       const p = this.toWorld(this.clamp(fx), this.clampY(fy));
       this.target = p;
       this.onArrive = then || null;
@@ -994,6 +1070,68 @@ function assetUrl(path) {
     }
     stopZzz() {
       if (this._zzzEv) { this._zzzEv.remove(false); this._zzzEv = null; }
+    }
+    placeCareItems() {
+      if (this.careItems) this.careItems.forEach((s) => s.destroy());
+      this.careItems = [];
+      if (!window.MyPetSpecies || !state || !state.pet) return;
+      MyPetSpecies.normalizeItems(state.pet);
+      const scale = this.fScale;
+      ["water", "food", "bed"].forEach((slot) => {
+        const def = MyPetSpecies.findItem(slot, state.pet.items[slot]);
+        if (!def) return;
+        const key = def.file.slice(0, -4);
+        if (!this.textures.exists(key)) return;
+        const spotKey = MyPetSpecies.ITEM_SLOT_SPOT[slot];
+        const spot = SPOTS[spotKey];
+        if (!spot) return;
+        const p = this.toWorld(spot.x, spot.y);
+        const spr = this.add.image(p.x, p.y, key)
+          .setOrigin(def.origin[0], def.origin[1])
+          .setScale(scale)
+          .setDepth(p.y - 2);
+        this.careItems.push(spr);
+      });
+    }
+    placeHomeDecor() {
+      if (this.homeDecor) this.homeDecor.forEach((s) => s.destroy());
+      this.homeDecor = [];
+      const sp = currentSpecies();
+      if (!sp || !sp.homeDecor || !window.MyPetSpecies) return;
+      const props = (MyPetSpecies.HOME_DECOR && MyPetSpecies.HOME_DECOR[sp.homeDecor]) || null;
+      if (!props) return;
+      const scale = this.fScale;
+      props.forEach((pr) => {
+        const key = pr.file.slice(0, -4);
+        if (!this.textures.exists(key)) return;
+        const p = this.toWorld(pr.x, pr.y);
+        const ground = key === "prop_pond" || key.indexOf("stones") >= 0 || key === "prop_den" || key.indexOf("log") >= 0;
+        const spr = this.add.image(p.x, p.y, key)
+          .setOrigin(pr.origin[0], pr.origin[1])
+          .setScale(scale)
+          .setDepth(ground ? 4 : (p.y - 24));
+        if (pr.flip) spr.setFlipX(true);
+        this.homeDecor.push(spr);
+      });
+    }
+    clearMood() {
+      if (this.moodItem) {
+        this.moodItem.destroy();
+        this.moodItem = null;
+      }
+    }
+    tickMood() {
+      this.clearMood();
+      const sp = currentSpecies();
+      if (!sp || !sp.moods || sp.moods.indexOf("yuzu") < 0) return;
+      if (this.mode !== "idle") return;
+      if (Math.random() < 0.35) return;
+      const kind = Math.random() < 0.5 ? "yuzu" : "orange";
+      if (!this.textures.exists(kind)) return;
+      this.moodItem = this.add.image(this.sheep.x, this.sheep.y, kind)
+        .setOrigin(0.5, 1)
+        .setScale(this.fScale);
+      this.layoutWear();
     }
     setFieldTheme(id) {
       const key = "field_" + id;
@@ -1160,6 +1298,7 @@ function assetUrl(path) {
         this.idleAt = this.time.now + 7000 + Math.random() * 6000;
       }
       this.layoutWear();
+      this.tickMood();
       updateMood();
     }
 
@@ -1586,8 +1725,9 @@ function assetUrl(path) {
       const s = this.fScale;
       const flip = this.sheep.flipX ? -1 : 1;
       // Sit on the snout, just in front of the face — never in the mouth.
-      const nx = this.sheep.x + (-44) * s * flip;
-      const ny = this.sheep.y + (-66) * s;
+      const nose = noseAt(this.poseName ? this.poseName() : "happy");
+      const nx = this.sheep.x + nose.x * s * flip;
+      const ny = this.sheep.y + nose.y * s;
       bf.setDepth(this.sheep.y + 6);
       this.tweens.add({
         targets: bf, x: nx, y: ny, duration: 280, ease: "Sine.easeOut",
@@ -1697,19 +1837,29 @@ function assetUrl(path) {
           this.idleMood();
         }
       }
+      const sp = currentSpecies();
+      if (sp && sp.walk === "wobble" && this.sheep) {
+        if (this.mode === "sleep") {
+          this.sheep.angle = 0;
+        } else if (this.mode === "walk" || this.target) {
+          this.sheep.angle = Math.sin(this.time.now / 110) * 10;
+        } else if (this.mode === "idle" && !busy) {
+          this.sheep.angle = Math.sin(this.time.now / 700) * 2.5;
+        }
+      }
       this.tickWeather(dt);
     }
   }
 
   function dressPreview(sheepImg, hatImg, collarImg) {
     if (!sheepImg) return;
-    const happy = /sheep_happy/.test(sheepImg.getAttribute("src") || sheepImg.src || "");
+    const happy = /_happy/.test(sheepImg.getAttribute("src") || sheepImg.src || "");
     const boxH = sheepImg.getBoundingClientRect().height || sheepImg.clientHeight || 150;
-    const artH = happy ? 139 : 121;
+    const artH = sheepImg.naturalHeight || (happy ? 139 : 121);
     const scale = boxH / artH;
     const pet = state && state.pet;
-    const head = happy ? (HEAD.happy || HEAD.idle) : HEAD.idle;
-    const neck = happy ? (NECK.happy || NECK.idle) : NECK.idle;
+    const head = headAt(happy ? "happy" : "idle", pet);
+    const neck = neckAt(happy ? "happy" : "idle", pet);
     function place(img, ox, oy, mul, src, size) {
       if (!img) return;
       if (!src) { img.classList.add("hidden"); img.removeAttribute("src"); return; }
@@ -2226,16 +2376,50 @@ function assetUrl(path) {
   }
   function closeLooks() { $("looks").classList.add("hidden"); }
   function showLooksTab(which) {
-    const looks = which !== "field";
-    const tabLooks = $("tabLooks");
-    const tabField = $("tabField");
-    const paneLooks = $("looksPane");
-    const paneField = $("fieldPane");
-    if (tabLooks) tabLooks.classList.toggle("on", looks);
-    if (tabField) tabField.classList.toggle("on", !looks);
-    if (paneLooks) paneLooks.classList.toggle("hidden", !looks);
-    if (paneField) paneField.classList.toggle("hidden", looks);
-    if (!looks) renderFieldPicker();
+    which = which || "looks";
+    const tabs = { looks: $("tabLooks"), items: $("tabItems"), field: $("tabField") };
+    const panes = { looks: $("looksPane"), items: $("itemsPane"), field: $("fieldPane") };
+    ["looks", "items", "field"].forEach((id) => {
+      if (tabs[id]) tabs[id].classList.toggle("on", which === id);
+      if (panes[id]) panes[id].classList.toggle("hidden", which !== id);
+    });
+    if (which === "field") renderFieldPicker();
+    if (which === "items") renderItemsPicker();
+  }
+  function renderItemsPicker() {
+    const box = $("itemsGrid");
+    if (!box || !window.MyPetSpecies || !state || !state.pet) return;
+    MyPetSpecies.normalizeItems(state.pet);
+    box.innerHTML = "";
+    const labels = { water: "💧 Water", food: "🥕 Food", bed: "🛏️ Bed" };
+    ["water", "food", "bed"].forEach((slot) => {
+      const row = document.createElement("div");
+      row.className = "item-row";
+      const lab = document.createElement("div");
+      lab.className = "lab";
+      lab.textContent = labels[slot];
+      row.appendChild(lab);
+      const picks = document.createElement("div");
+      picks.className = "item-picks";
+      const cur = state.pet.items[slot];
+      MyPetSpecies.ITEMS[slot].forEach((it) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "item-pick" + (it.id === cur ? " on" : "");
+        btn.innerHTML = '<img alt="" src="' + assetUrl("assets/" + it.file) + '"><span class="name">' + it.emoji + " " + it.name + "</span>";
+        btn.addEventListener("click", () => {
+          state.pet.items[slot] = it.id;
+          persistStaticPet();
+          if (pasture && pasture.placeCareItems) pasture.placeCareItems();
+          renderItemsPicker();
+          toast(it.emoji + " " + it.name);
+          blip("click");
+        });
+        picks.appendChild(btn);
+      });
+      row.appendChild(picks);
+      box.appendChild(row);
+    });
   }
   function renderFieldPicker() {
     const grid = $("fieldGrid");
@@ -2282,11 +2466,11 @@ function assetUrl(path) {
     });
     $("looksClose").addEventListener("click", closeLooks);
     const tabLooks = $("tabLooks");
+    const tabItems = $("tabItems");
     const tabField = $("tabField");
-    if (tabLooks && tabField) {
-      tabLooks.addEventListener("click", () => showLooksTab("looks"));
-      tabField.addEventListener("click", () => showLooksTab("field"));
-    }
+    if (tabLooks) tabLooks.addEventListener("click", () => showLooksTab("looks"));
+    if (tabItems) tabItems.addEventListener("click", () => showLooksTab("items"));
+    if (tabField) tabField.addEventListener("click", () => showLooksTab("field"));
     $("friendClose").addEventListener("click", closeFriend);
     const testBtn = $("testBtn");
     if (testBtn) {
@@ -2298,11 +2482,66 @@ function assetUrl(path) {
     bindRosterUi();
   }
 
+  function defaultAdoptPick(speciesId) {
+    const sp = window.MyPetSpecies && MyPetSpecies.of(speciesId || "sheep_valais");
+    const def = (sp && sp.defaults) || { wool: "white", face: "black", eyes: "white" };
+    return {
+      species: (sp && sp.id) || "sheep_valais",
+      wool: def.wool, face: def.face, eyes: def.eyes,
+      field: (sp && sp.defaultField) || "meadow",
+    };
+  }
+  function renderSpeciesCards() {
+    const row = $("speciesRow");
+    if (!row) return;
+    if (!window._adoptPick) window._adoptPick = defaultAdoptPick("sheep_valais");
+    const list = window.MyPetSpecies
+      ? Object.keys(MyPetSpecies.SPECIES).map((id) => MyPetSpecies.SPECIES[id]).filter((s) => s.ready)
+      : [{ id: "sheep_valais", name: "Valais sheep", short: "Valais", emoji: "🐑", prefix: "sheep", ready: true }];
+    row.innerHTML = "";
+    list.forEach((s) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "species-card" + (window._adoptPick.species === s.id ? " on" : "");
+      b.setAttribute("data-id", s.id);
+      const img = document.createElement("img");
+      img.alt = s.name;
+      const file = (s.prefix || "sheep") + "_idle.png";
+      const colors = window._adoptPick.species === s.id
+        ? window._adoptPick
+        : ((window.MyPetSpecies && MyPetSpecies.of(s.id).defaults) || { wool: "white", face: "black", eyes: "white" });
+      const im = COLOR_IMG[file];
+      if (im && im.naturalWidth && window.MyPetColor && MyPetColor.recolorPetImage) {
+        img.src = MyPetColor.recolorPetImage(im, colors, s.id).toDataURL("image/png");
+      } else {
+        img.src = assetUrl("assets/" + file);
+        if (!im) loadColorImg(file, renderSpeciesCards);
+      }
+      const name = document.createElement("span");
+      name.textContent = s.emoji + " " + (s.short || s.name);
+      b.appendChild(img);
+      b.appendChild(name);
+      b.addEventListener("click", () => {
+        window._adoptPick = defaultAdoptPick(s.id);
+        bindAdoptColors();
+        renderSpeciesCards();
+        renderAdoptFields();
+        refreshAdoptPreview();
+      });
+      row.appendChild(b);
+    });
+  }
   function renderSoonCards() {
     const row = $("soonRow");
     if (!row || !window.MyPetRoster) return;
     row.innerHTML = "";
-    MyPetRoster.COMING_SOON.forEach((s) => {
+    const list = MyPetRoster.COMING_SOON || [];
+    const lab = document.querySelector(".soon-label");
+    const empty = !list.length;
+    if (lab) lab.style.display = empty ? "none" : "";
+    row.style.display = empty ? "none" : "";
+    if (empty) return;
+    list.forEach((s) => {
       const b = document.createElement("div");
       b.className = "soon-card";
       const img = document.createElement("img");
@@ -2327,8 +2566,9 @@ function assetUrl(path) {
   function renderAdoptFields() {
     const row = $("adoptFields");
     if (!row || !window.MyPetWorld) return;
-    if (!window._adoptPick) window._adoptPick = { wool: "white", face: "black", eyes: "white", field: "meadow" };
-    if (!window._adoptPick.field) window._adoptPick.field = "meadow";
+    if (!window._adoptPick) window._adoptPick = defaultAdoptPick("sheep_valais");
+    if (!window._adoptPick.species) window._adoptPick.species = "sheep_valais";
+    if (!window._adoptPick.field) window._adoptPick.field = (window.MyPetSpecies && MyPetSpecies.of(window._adoptPick).defaultField) || "meadow";
     row.innerHTML = "";
     MyPetWorld.FIELDS.forEach((f) => {
       const b = document.createElement("button");
@@ -2353,8 +2593,10 @@ function assetUrl(path) {
   function prepareAdoptPaper() {
     const d = $("adoptDate");
     if (d && window.MyPetRoster) d.textContent = MyPetRoster.formatShort(MyPetRoster.pacificYmd(new Date()));
+    renderSpeciesCards();
     renderSoonCards();
     renderAdoptFields();
+    bindAdoptColors();
     refreshAdoptPreview();
   }
 
@@ -2432,6 +2674,9 @@ function assetUrl(path) {
       pasture.sheep.setTexture(idle);
     }
     applyBirthdayDecor();
+    if (pasture.placeCareItems) pasture.placeCareItems();
+    if (pasture.placeHomeDecor) pasture.placeHomeDecor();
+    if (pasture.clearMood) pasture.clearMood();
     if (pasture.applyWorld) pasture.applyWorld(true);
     applySky();
     busy = false;
@@ -2707,7 +2952,7 @@ function assetUrl(path) {
 
   async function onAdopt() {
     const name = ($("nameInput").value || "Biscuit").trim().slice(0, 24);
-    const pick = window._adoptPick || { wool: "white", face: "black", eyes: "white", field: "meadow" };
+    const pick = window._adoptPick || defaultAdoptPick("sheep_valais");
     try {
       $("adoptBtn").disabled = true;
       await playStampAndConfetti();
@@ -2719,6 +2964,7 @@ function assetUrl(path) {
       } else {
         pet = MyPetRoster.makePet({
           name: name,
+          species: pick.species || "sheep_valais",
           wool: pick.wool,
           face: pick.face,
           eyes: pick.eyes,
@@ -2732,10 +2978,15 @@ function assetUrl(path) {
       }
       if (pet) {
         pet.name = name;
-        pet.wool = pick.wool || "white";
-        pet.face = pick.face || "black";
-        pet.eyes = pick.eyes || "white";
-        pet.fieldTheme = pick.field || "meadow";
+        pet.species = pick.species || pet.species || "sheep_valais";
+        pet.wool = pick.wool;
+        pet.face = pick.face;
+        pet.eyes = pick.eyes;
+        pet.fieldTheme = pick.field || (window.MyPetSpecies && MyPetSpecies.of(pet).defaultField) || "meadow";
+        if (window.MyPetSpecies) {
+          pet.items = MyPetSpecies.defaultItems(pet);
+          MyPetSpecies.normalizeItems(pet);
+        }
         if (window.MyPetColor) MyPetColor.migratePet(pet);
         if (window.MyPetRoster) {
           MyPetRoster.normalizePet(pet);
@@ -2823,19 +3074,20 @@ function assetUrl(path) {
         if (!pasture) return;
         pasture.target = null;
         const k = key || "idle";
+        const tex = (kk) => pasture.textures.exists(liveKey(kk)) ? liveKey(kk) : kk;
         if (k === "sleep") {
           pasture.mode = "sleep";
           pasture.sheep.stop();
           pasture.sheep.angle = 0;
-          pasture.sheep.setTexture("sleep");
+          pasture.sheep.setTexture(tex("sleep"));
         } else if (k === "walk" || String(k).indexOf("walk") === 0) {
           pasture.mode = "walk";
           pasture.sheep.stop();
-          pasture.sheep.setTexture(k === "walk" ? "walk1" : k);
+          pasture.sheep.setTexture(tex(k === "walk" ? "walk1" : k));
         } else {
           pasture.mode = (k === "idle") ? "idle" : k;
           pasture.sheep.stop();
-          pasture.sheep.setTexture(k);
+          pasture.sheep.setTexture(tex(k));
         }
         pasture.layoutWear();
       },
@@ -2908,7 +3160,7 @@ function assetUrl(path) {
     window.__mypet.getState = () => state;
   }
 
-  window._adoptPick = { wool: "white", face: "black", eyes: "white", field: "meadow" };
+  window._adoptPick = defaultAdoptPick("sheep_valais");
 
   function makeSwatches(el, order, names, pal, current, onPick) {
     if (!el) return;
@@ -2927,24 +3179,37 @@ function assetUrl(path) {
   }
   function bindAdoptColors() {
     if (!window.MyPetColor) return;
-    const pick = window._adoptPick;
-    const draw = () => {
-      makeSwatches($("woolSwatches"), MyPetColor.WOOL_ORDER, MyPetColor.WOOL_NAMES, MyPetColor.WOOL, pick.wool, (id) => { pick.wool = id; draw(); refreshAdoptPreview(); });
-      makeSwatches($("faceSwatches"), MyPetColor.FACE_ORDER, MyPetColor.FACE_NAMES, MyPetColor.FACE, pick.face, (id) => { pick.face = id; draw(); refreshAdoptPreview(); });
-      makeSwatches($("eyeSwatches"), MyPetColor.EYE_ORDER, MyPetColor.EYE_NAMES, MyPetColor.EYES, pick.eyes, (id) => { pick.eyes = id; draw(); refreshAdoptPreview(); });
-    };
-    draw();
+    const pick = window._adoptPick || defaultAdoptPick("sheep_valais");
+    const sp = window.MyPetSpecies && MyPetSpecies.of(pick.species);
+    const slots = (sp && sp.colorSlots) || [
+      { key: "wool", label: "Wool", pal: "WOOL" },
+      { key: "face", label: "Face", pal: "FACE" },
+      { key: "eyes", label: "Eyes", pal: "EYES" },
+    ];
+    const labs = { wool: $("woolLab"), face: $("faceLab"), eyes: $("eyesLab") };
+    const boxes = { wool: $("woolSwatches"), face: $("faceSwatches"), eyes: $("eyeSwatches") };
+    ["wool", "face", "eyes"].forEach((key) => {
+      const lab = labs[key];
+      const row = lab && lab.parentElement;
+      const used = slots.some((s) => s.key === key);
+      if (row) row.style.display = used ? "" : "none";
+    });
+    slots.forEach((slot) => {
+      if (labs[slot.key]) labs[slot.key].textContent = slot.label;
+      const pal = MyPetColor.PALS && MyPetColor.PALS[slot.pal];
+      const order = pal ? pal.order : MyPetColor[slot.pal + "_ORDER"] || MyPetColor.WOOL_ORDER;
+      const names = pal ? pal.names : MyPetColor[slot.pal + "_NAMES"] || MyPetColor.WOOL_NAMES;
+      const map = pal ? pal.map : MyPetColor[slot.pal] || MyPetColor.WOOL;
+      makeSwatches(boxes[slot.key], order, names, map, pick[slot.key], (id) => {
+        pick[slot.key] = id;
+        bindAdoptColors();
+        renderSpeciesCards();
+        refreshAdoptPreview();
+      });
+    });
   }
   function refreshAdoptPreview() {
-    const img = $("adoptPreview") || document.querySelector("#pickPet img");
-    if (!img || !window.MyPetColor) return;
-    const pose = COLOR_IMG["sheep_idle.png"];
-    if (!pose || !pose.naturalWidth) {
-      loadColorImg("sheep_idle.png", refreshAdoptPreview);
-      return;
-    }
-    const pick = window._adoptPick || { wool: "white", face: "black", eyes: "white" };
-    img.src = MyPetColor.recolorSheepImage(pose, pick).toDataURL("image/png");
+    renderSpeciesCards();
   }
 
   window.addEventListener("load", main);
