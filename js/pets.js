@@ -3,7 +3,7 @@
   const TZ = "America/Los_Angeles";
   const SLOT_START = [0, 30, 75];
   const SLOT_STEP = 60;
-  const MAX_SLOTS = 8;
+  const MAX_SLOTS = 14;
   const PHOTO_CAP = 12;
   const SPECIES = (window.MyPetSpecies && MyPetSpecies.SPECIES) || {
     sheep_valais: { id: "sheep_valais", name: "Valais sheep", short: "Valais", emoji: "🐑", ready: true },
@@ -117,6 +117,7 @@
     pet.face = pet.face || def.face;
     pet.eyes = pet.eyes || def.eyes;
     pet.costumeColors = pet.costumeColors || {};
+    if (pet.dye && typeof pet.dye !== "object") pet.dye = {};
     pet.fieldTheme = pet.fieldTheme || (sp && sp.defaultField) || "meadow";
     if (window.MyPetSpecies) MyPetSpecies.normalizeItems(pet);
     if (!isRealDate(pet.created_at)) pet.created_at = Date.now();
@@ -267,6 +268,7 @@
       face: opts.face || def.face,
       eyes: opts.eyes || def.eyes,
       costumeColors: {},
+      dye: opts.dye ? JSON.parse(JSON.stringify(opts.dye)) : undefined,
       fieldTheme: opts.fieldTheme || (sp && sp.defaultField) || "meadow",
       items: opts.items || (window.MyPetSpecies && MyPetSpecies.defaultItems({ species: opts.species })),
       created_at: Date.now(),

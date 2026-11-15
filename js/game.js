@@ -87,6 +87,25 @@ function assetUrl(path) {
     tunnel: { x: 250, y: 580, r: 80, kind: "tunnel", start: { x: 170, y: 595 }, end: { x: 340, y: 595 }, label: "tunnel" },
   };
 
+  const FOOTPRINT = {
+    item_hay_trough: { rx: 58, ry: 34 },
+    item_water_trough: { rx: 58, ry: 34 },
+    item_veggie_bowl: { rx: 34, ry: 24 },
+    item_basin: { rx: 46, ry: 30 },
+    item_hottub: { rx: 70, ry: 46 },
+    item_hay_bed: { rx: 66, ry: 38 },
+    item_straw_mat: { rx: 72, ry: 36 },
+    prop_den: { rx: 48, ry: 28 },
+    prop_log: { rx: 52, ry: 20 },
+    prop_stones: { rx: 38, ry: 16 },
+    prop_pond: { rx: 102, ry: 46 },
+    prop_bamboo: { rx: 16, ry: 14 },
+    prop_reeds: { rx: 16, ry: 14 },
+    hay_bale: { rx: 68, ry: 36 },
+    slide: { rx: 78, ry: 48 },
+    tunnel: { rx: 72, ry: 40 },
+  };
+
   const $ = (id) => document.getElementById(id);
   let state = null;
   let game = null;
@@ -220,7 +239,7 @@ function assetUrl(path) {
   function petColors(pet) {
     const p = pet || (state && state.pet) || {};
     const def = (window.MyPetSpecies && MyPetSpecies.of(p).defaults) || { wool: "white", face: "black", eyes: "white" };
-    return { wool: p.wool || def.wool, face: p.face || def.face, eyes: p.eyes || def.eyes };
+    return { wool: p.wool || def.wool, face: p.face || def.face, eyes: p.eyes || def.eyes, dye: p.dye || null };
   }
   function costumeColorOf(id) {
     const map = (state && state.pet && state.pet.costumeColors) || {};
@@ -637,12 +656,168 @@ function assetUrl(path) {
     });
   }
 
+
+  function dyeTrackHue(s, l) {
+    const stops = [];
+    for (let i = 0; i <= 6; i++) stops.push("hsl(" + (i * 60) + ", " + Math.round(s * 100) + "%, " + Math.round(l * 100) + "%)");
+    return "linear-gradient(to right, " + stops.join(", ") + ")";
+  }
+  function dyeTrackSat(h, l) {
+    return "linear-gradient(to right, hsl(" + h + ", 0%, " + Math.round(l * 100) + "%), hsl(" + h + ", 100%, " + Math.round(l * 100) + "%))";
+  }
+  function dyeTrackLit(h, s) {
+    const sat = Math.round(s * 100);
+    return "linear-gradient(to right, hsl(" + h + ", " + sat + "%, 4%), hsl(" + h + ", " + sat + "%, 50%), hsl(" + h + ", " + sat + "%, 96%))";
+  }
+  function paintDyeTracks(row, dye) {
+    if (!row || !dye) return;
+    const hue = row.querySelector(".dye-hue");
+    const sat = row.querySelector(".dye-sat");
+    const lit = row.querySelector(".dye-lit");
+    const h = dye.h || 0, s = dye.s == null ? 0.6 : dye.s, l = dye.l == null ? 0.5 : dye.l;
+    // Hue track stays vivid so the rainbow is easy to read
+    if (hue) hue.style.background = dyeTrackHue(0.85, 0.5);
+    if (sat) sat.style.background = dyeTrackSat(h, Math.max(0.35, Math.min(0.65, l)));
+    if (lit) lit.style.background = dyeTrackLit(h, s);
+  }
+  function readDyeFromRow(row) {
+    const hue = row.querySelector(".dye-hue");
+    const sat = row.querySelector(".dye-sat");
+    const lit = row.querySelector(".dye-lit");
+    return {
+      h: hue ? Number(hue.value) : 0,
+      s: sat ? Number(sat.value) / 100 : 0,
+      l: lit ? Number(lit.value) / 100 : 0.5,
+      custom: true,
+    };
+  }
+  function writeDyeToRow(row, dye, currentId, map) {
+    if (!dye) return;
+    const hue = row.querySelector(".dye-hue");
+    const sat = row.querySelector(".dye-sat");
+    const lit = row.querySelector(".dye-lit");
+    if (hue) hue.value = String(Math.round(dye.h || 0));
+    if (sat) sat.value = String(Math.round((dye.s == null ? 0 : dye.s) * 100));
+    if (lit) lit.value = String(Math.round((dye.l == null ? 0.5 : dye.l) * 100));
+    paintDyeTracks(row, dye);
+    row.querySelectorAll("button.swatch").forEach((btn) => {
+      btn.classList.toggle("on", currentId && btn.dataset.id === currentId);
+    });
+  }
+  function renderColorPickers(box, model, onChange) {
+    if (!box || !window.MyPetColor) return;
+    const sp = window.MyPetSpecies && MyPetSpecies.of(model);
+    const slots = (sp && sp.colorSlots) || [
+      { key: "wool", label: "Wool", pal: "WOOL" },
+      { key: "face", label: "Face", pal: "FACE" },
+      { key: "eyes", label: "Eyes", pal: "EYES" },
+    ];
+    MyPetColor.ensureDye(model);
+    const sig = (model.species || "") + ":" + slots.map((s) => s.key).join(",");
+    if (box.dataset.dyeSig === sig && box.querySelector(".dye-slot")) {
+      slots.forEach((slot) => {
+        const row = box.querySelector('.dye-slot[data-key="' + slot.key + '"]');
+        if (row) writeDyeToRow(row, model.dye[slot.key], model[slot.key], null);
+      });
+      return;
+    }
+    box.dataset.dyeSig = sig;
+    box.innerHTML = "";
+    slots.forEach((slot) => {
+      const pal = MyPetColor.PALS && MyPetColor.PALS[slot.pal];
+      const order = pal ? pal.order : [];
+      const names = pal ? pal.names : {};
+      const map = pal ? pal.map : {};
+      const wrap = document.createElement("div");
+      wrap.className = "swatch-row dye-slot";
+      wrap.dataset.key = slot.key;
+      const lab = document.createElement("div");
+      lab.className = "lab";
+      lab.textContent = slot.label;
+      wrap.appendChild(lab);
+      const rowEl = document.createElement("div");
+      rowEl.className = "swatches";
+      (order || []).forEach((id) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.dataset.id = id;
+        btn.className = "swatch" + (model[slot.key] === id ? " on" : "");
+        btn.title = (names && names[id]) || id;
+        btn.setAttribute("aria-label", (names && names[id]) || id);
+        const entry = map && map[id];
+        btn.style.background = (entry && entry.hex) || "#eee";
+        btn.addEventListener("click", () => {
+          const dye = MyPetColor.dyeFromPreset(entry);
+          if (!model.dye) model.dye = {};
+          dye.custom = !MyPetColor.isIdentityEntry(entry);
+          model.dye[slot.key] = dye;
+          model[slot.key] = id;
+          writeDyeToRow(wrap, dye, id, map);
+          if (onChange) onChange(model, { key: slot.key, from: "swatch" });
+        });
+        rowEl.appendChild(btn);
+      });
+      wrap.appendChild(rowEl);
+      const bars = document.createElement("div");
+      bars.className = "dye-bars";
+      [
+        { cls: "dye-hue", emoji: "🌈", name: "Hue", min: 0, max: 360, val: Math.round((model.dye[slot.key] && model.dye[slot.key].h) || 0) },
+        { cls: "dye-sat", emoji: "💧", name: "Sat", min: 0, max: 100, val: Math.round(((model.dye[slot.key] && model.dye[slot.key].s) || 0) * 100) },
+        { cls: "dye-lit", emoji: "🌗", name: "Light", min: 0, max: 100, val: Math.round(((model.dye[slot.key] && model.dye[slot.key].l) || 0.5) * 100) },
+      ].forEach((bar) => {
+        const labEl = document.createElement("label");
+        labEl.className = "dye-bar";
+        labEl.innerHTML = '<span class="dye-ico" aria-hidden="true">' + bar.emoji + '</span><span class="dye-name">' + bar.name + "</span>";
+        const input = document.createElement("input");
+        input.type = "range";
+        input.className = bar.cls;
+        input.min = String(bar.min);
+        input.max = String(bar.max);
+        input.step = "1";
+        input.value = String(bar.val);
+        input.setAttribute("aria-label", bar.name);
+        const fire = (done) => {
+          const dye = readDyeFromRow(wrap);
+          if (!model.dye) model.dye = {};
+          model.dye[slot.key] = dye;
+          model[slot.key] = "custom";
+          paintDyeTracks(wrap, dye);
+          wrap.querySelectorAll("button.swatch").forEach((btn) => btn.classList.remove("on"));
+          if (onChange) onChange(model, { key: slot.key, from: "slider", done: !!done });
+        };
+        input.addEventListener("input", () => fire(false));
+        input.addEventListener("change", () => fire(true));
+        labEl.appendChild(input);
+        bars.appendChild(labEl);
+      });
+      wrap.appendChild(bars);
+      paintDyeTracks(wrap, model.dye[slot.key]);
+      box.appendChild(wrap);
+    });
+  }
+
   function renderLooksColors() {
     const box = $("looksColors");
     if (!box || !window.MyPetColor) return;
     box.innerHTML = "";
     const pet = state && state.pet;
     if (!pet) return;
+    if (window.MyPetColor && MyPetColor.ensureDye) MyPetColor.ensureDye(pet);
+    let lookTimer = renderLooksColors._t;
+    renderColorPickers(box, pet, (model, ev) => {
+      state.pet.wool = model.wool;
+      state.pet.face = model.face;
+      state.pet.eyes = model.eyes;
+      state.pet.dye = model.dye;
+      if (ev && ev.from === "slider" && !ev.done) {
+        clearTimeout(renderLooksColors._t);
+        renderLooksColors._t = setTimeout(() => applyPetLook(), 40);
+        return;
+      }
+      persistStaticPet();
+      applyPetLook();
+      if (!(ev && ev.from === "slider")) blip("click");
+    });
     const unlocked = pet.unlocked || [];
     const rows = [];
     if (pet.costume && unlocked.includes(pet.costume)) {
@@ -771,8 +946,8 @@ function assetUrl(path) {
       const walkKeys = ["walk1", "walk2", "walk3", "walk4"].map((k) => this.textures.exists(liveKey(k)) ? liveKey(k) : k);
       this.anims.create({
         key: "walk",
-        frames: walkKeys.map((k) => ({ key: k })),
-        frameRate: 8, repeat: -1,
+        frames: walkKeys.map((k, i) => ({ key: k, duration: (i % 2 === 0) ? 150 : 90 })),
+        repeat: -1,
       });
       this.anims.create({ key: "bf", frames: [{ key: "bf1" }, { key: "bf2" }], frameRate: 5, repeat: -1 });
       this.anims.create({ key: "bfb", frames: [{ key: "bfb1" }, { key: "bfb2" }], frameRate: 5, repeat: -1 });
@@ -852,8 +1027,34 @@ function assetUrl(path) {
     }
 
     place(x, y) {
+      this.footX = x; this.footY = y;
       this.sheep.x = x; this.sheep.y = y;
+      if (this.fScale) this.sheep.setScale(this.fScale, this.fScale);
       this.layoutWear();
+    }
+
+    resetWalkPose() {
+      if (!this.sheep) return;
+      if (this.footX != null) this.sheep.x = this.footX;
+      if (this.footY != null) this.sheep.y = this.footY;
+      if (this.fScale) this.sheep.setScale(this.fScale, this.fScale);
+    }
+
+    applyWalkMotion() {
+      if (!this.sheep || !this.target || this.footX == null) return;
+      const s = this.fScale;
+      const sp = currentSpecies();
+      if (sp && sp.walk === "wobble") {
+        this.sheep.setScale(s, s);
+        this.sheep.x = this.footX;
+        this.sheep.y = this.footY;
+        return;
+      }
+      const wave = Math.abs(Math.sin(this.time.now / 140));
+      const hop = (sp && sp.hop) ? wave * 8 * s : wave * 2.2 * s;
+      this.sheep.setScale(s * (1 + wave * 0.04), s * (1 - wave * 0.05));
+      this.sheep.x = this.footX;
+      this.sheep.y = this.footY - hop;
     }
 
     poseName() {
@@ -876,6 +1077,10 @@ function assetUrl(path) {
 
     layoutWear() {
       if (!this.sheep) return;
+      if (!this.target) {
+        this.footX = this.sheep.x;
+        this.footY = this.sheep.y;
+      }
       const s = this.fScale;
       if (this.mode === "sleep") this.sheep.angle = 0;
       const sx = Math.abs(this.sheep.scaleX) || s;
@@ -894,7 +1099,7 @@ function assetUrl(path) {
         sprite.setAngle(ang);
         sprite.x = this.sheep.x + lx * cos - ly * sin;
         sprite.y = this.sheep.y + lx * sin + ly * cos;
-        sprite.setDepth(this.sheep.y + depthOff);
+        sprite.setDepth((this.footY != null ? this.footY : this.sheep.y) + depthOff);
       };
       if (this.blanket) {
         pin(this.blanket, 0, -10, 1, { x: 0.5, y: 0.7 }, -1);
@@ -961,9 +1166,10 @@ function assetUrl(path) {
         const ry = lx * Math.sin(rad) + ly * Math.cos(rad);
         bf.x = this.sheep.x + rx;
         bf.y = this.sheep.y + ry;
-        bf.setDepth(this.sheep.y + 6);
+        bf.setDepth((this.footY != null ? this.footY : this.sheep.y) + 6);
       }
-      this.sheep.setDepth(this.sheep.y);
+      const baseY = this.footY != null ? this.footY : this.sheep.y;
+      this.sheep.setDepth(this._depthLock != null ? this._depthLock : baseY);
     }
 
     wear(id) {
@@ -984,8 +1190,9 @@ function assetUrl(path) {
     }
 
     setFacing(dx) {
-      if (Math.abs(dx) < 1) return;
-      this.sheep.setFlipX(dx > 0);
+      if (Math.abs(dx) < 0.5) return;
+      const want = dx > 0;
+      if (this.sheep.flipX !== want) this.sheep.setFlipX(want);
       this.layoutWear();
     }
 
@@ -997,19 +1204,171 @@ function assetUrl(path) {
 
     walkTo(fx, fy, then) {
       if (this.clearMood) this.clearMood();
-      const p = this.toWorld(this.clamp(fx), this.clampY(fy));
+      if (this.footX == null && this.sheep) { this.footX = this.sheep.x; this.footY = this.sheep.y; }
+      const dest = this.pushOut(fx, fy);
+      this._waypoints = this.buildPath(dest.x, dest.y);
+      this._wpI = 0;
+      const first = this._waypoints[0] || dest;
+      const p = this.toWorld(first.x, first.y);
       this.target = p;
       this.onArrive = then || null;
       this.mode = "walk";
-      this.setFacing(p.x - this.sheep.x);
+      this.setFacing(p.x - this.footX);
       this.showAnim("walk");
     }
 
     clamp(x) { return Phaser.Math.Clamp(x, WALK.x0, WALK.x1); }
     clampY(y) { return Phaser.Math.Clamp(y, WALK.y0, WALK.y1); }
 
+    footprintOf(key) {
+      return FOOTPRINT[key] || { rx: 40, ry: 24 };
+    }
+
+    rebuildBlockers() {
+      this.blockers = [];
+      const add = (id, fx, fy, key) => {
+        const fp = this.footprintOf(key);
+        this.blockers.push({ id: id, fx: fx, fy: fy, rx: fp.rx, ry: fp.ry, key: key });
+      };
+      if (window.MyPetSpecies && state && state.pet) {
+        MyPetSpecies.normalizeItems(state.pet);
+        ["water", "food", "bed"].forEach((slot) => {
+          const def = MyPetSpecies.findItem(slot, state.pet.items[slot]);
+          if (!def) return;
+          const spotKey = MyPetSpecies.ITEM_SLOT_SPOT[slot];
+          const spot = SPOTS[spotKey];
+          if (!spot) return;
+          add("care-" + slot, spot.x, spot.y, def.file.slice(0, -4));
+        });
+        const sp = currentSpecies();
+        const props = sp && sp.homeDecor && MyPetSpecies.HOME_DECOR && MyPetSpecies.HOME_DECOR[sp.homeDecor];
+        if (props) {
+          props.forEach((pr, i) => add("decor-" + (pr.key || i), pr.x, pr.y, pr.file.slice(0, -4)));
+        }
+      }
+      add("park-hay", PARK.hay.x, PARK.hay.y, "hay_bale");
+      add("park-slide", PARK.slide.x, PARK.slide.y, "slide");
+      add("park-tunnel", PARK.tunnel.x, PARK.tunnel.y, "tunnel");
+    }
+
+    hitsBlocker(fx, fy) {
+      const list = this.blockers || [];
+      const pad = 30;
+      for (let i = 0; i < list.length; i++) {
+        const b = list[i];
+        const nx = (fx - b.fx) / (b.rx + pad), ny = (fy - b.fy) / (b.ry + pad);
+        if (nx * nx + ny * ny >= 1) continue;
+        return b;
+      }
+      return null;
+    }
+
+    lineHits(x0, y0, x1, y1) {
+      const steps = Math.max(4, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 12));
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const b = this.hitsBlocker(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t);
+        if (b) return b;
+      }
+      return null;
+    }
+
+    pushOut(fx, fy) {
+      const pad = 30;
+      let p = { x: this.clamp(fx), y: this.clampY(fy) };
+      for (let guard = 0; guard < 8; guard++) {
+        const b = this.hitsBlocker(p.x, p.y);
+        if (!b) return p;
+        const ang = Math.atan2(p.y - b.fy, p.x - b.fx);
+        const a = (p.x === b.fx && p.y === b.fy) ? -Math.PI / 2 : ang;
+        const cand = [
+          { x: this.clamp(b.fx + Math.cos(a) * (b.rx + pad + 4)), y: this.clampY(b.fy + Math.sin(a) * (b.ry + pad + 4)) },
+          { x: this.clamp(p.x), y: this.clampY(b.fy + b.ry + pad + 4) },
+          { x: this.clamp(p.x), y: this.clampY(b.fy - b.ry - pad - 4) },
+          { x: this.clamp(b.fx + b.rx + pad + 4), y: this.clampY(p.y) },
+          { x: this.clamp(b.fx - b.rx - pad - 4), y: this.clampY(p.y) },
+        ];
+        let next = null;
+        for (let i = 0; i < cand.length; i++) {
+          if (!this.hitsBlocker(cand[i].x, cand[i].y)) { next = cand[i]; break; }
+        }
+        if (!next) return p;
+        if (next.x === p.x && next.y === p.y) return p;
+        p = next;
+      }
+      return p;
+    }
+
+    aroundPoint(b, from, dest) {
+      const vx = dest.x - from.x, vy = dest.y - from.y;
+      const len = Math.hypot(vx, vy) || 1;
+      const px = -vy / len, py = vx / len;
+      const pad = 46;
+      const cands = [
+        { x: b.fx + px * (b.rx + pad), y: b.fy + py * (b.ry + pad) },
+        { x: b.fx - px * (b.rx + pad), y: b.fy - py * (b.ry + pad) },
+        { x: b.fx, y: b.fy - b.ry - pad },
+        { x: b.fx, y: b.fy + b.ry + pad },
+        { x: b.fx - b.rx - pad, y: b.fy },
+        { x: b.fx + b.rx + pad, y: b.fy },
+      ];
+      let best = null, bestScore = 1e9;
+      for (let i = 0; i < cands.length; i++) {
+        const c = { x: this.clamp(cands[i].x), y: this.clampY(cands[i].y) };
+        if (this.hitsBlocker(c.x, c.y)) continue;
+        const score = Math.hypot(c.x - from.x, c.y - from.y) + Math.hypot(c.x - dest.x, c.y - dest.y) * 0.6;
+        if (score < bestScore) { best = c; bestScore = score; }
+      }
+      if (!best) {
+        best = { x: this.clamp(b.fx + px * (b.rx + pad + 8)), y: this.clampY(b.fy + py * (b.ry + pad + 8)) };
+      }
+      return best;
+    }
+
+    buildPath(fx, fy) {
+      const dest = this.pushOut(fx, fy);
+      const start = this.toField(this.footX, this.footY);
+      const path = [];
+      let cur = { x: start.x, y: start.y };
+      if (this.hitsBlocker(cur.x, cur.y)) {
+        const stuck = this.hitsBlocker(cur.x, cur.y);
+        if (stuck) {
+          const ang = Math.atan2(cur.y - stuck.fy, cur.x - stuck.fx);
+          cur = {
+            x: this.clamp(stuck.fx + Math.cos(ang) * (stuck.rx + 14)),
+            y: this.clampY(stuck.fy + Math.sin(ang) * (stuck.ry + 14)),
+          };
+          path.push(cur);
+        }
+      }
+      for (let guard = 0; guard < 8; guard++) {
+        const hit = this.lineHits(cur.x, cur.y, dest.x, dest.y);
+        if (!hit) { path.push(dest); return path; }
+        const wp = this.aroundPoint(hit, cur, dest);
+        if (Math.hypot(wp.x - cur.x, wp.y - cur.y) < 4) break;
+        path.push(wp);
+        cur = wp;
+      }
+      path.push(dest);
+      return path;
+    }
+
+    nextWaypoint() {
+      this._wpI = (this._wpI || 0) + 1;
+      if (this._waypoints && this._wpI < this._waypoints.length) {
+        const n = this._waypoints[this._wpI];
+        this.target = this.toWorld(n.x, n.y);
+        this.setFacing(this.target.x - this.footX);
+        return true;
+      }
+      return false;
+    }
+
     arrive() {
+      if (this.nextWaypoint()) return;
       this.target = null;
+      this._waypoints = null;
+      this.resetWalkPose();
       const fn = this.onArrive;
       this.onArrive = null;
       if (fn) fn();
@@ -1089,9 +1448,10 @@ function assetUrl(path) {
         const spr = this.add.image(p.x, p.y, key)
           .setOrigin(def.origin[0], def.origin[1])
           .setScale(scale)
-          .setDepth(p.y - 2);
+          .setDepth(p.y);
         this.careItems.push(spr);
       });
+      this.rebuildBlockers();
     }
     placeHomeDecor() {
       if (this.homeDecor) this.homeDecor.forEach((s) => s.destroy());
@@ -1105,14 +1465,14 @@ function assetUrl(path) {
         const key = pr.file.slice(0, -4);
         if (!this.textures.exists(key)) return;
         const p = this.toWorld(pr.x, pr.y);
-        const ground = key === "prop_pond" || key.indexOf("stones") >= 0 || key === "prop_den" || key.indexOf("log") >= 0;
         const spr = this.add.image(p.x, p.y, key)
           .setOrigin(pr.origin[0], pr.origin[1])
           .setScale(scale)
-          .setDepth(ground ? 4 : (p.y - 24));
+          .setDepth(p.y);
         if (pr.flip) spr.setFlipX(true);
         this.homeDecor.push(spr);
       });
+      this.rebuildBlockers();
     }
     clearMood() {
       if (this.moodItem) {
@@ -1286,6 +1646,7 @@ function assetUrl(path) {
     }
     goIdle() {
       this.mode = "idle";
+      this.resetWalkPose();
       this.showAnim("idle");
       this.blanket.setVisible(false);
       this.stopZzz();
@@ -1520,6 +1881,7 @@ function assetUrl(path) {
       this.parkSprites.slide = this.add.image(sl.x, sl.y, "slide").setScale(s * 1.85).setOrigin(0.5, 1).setDepth(sl.y + 2);
       const tn = this.toWorld(PARK.tunnel.x, PARK.tunnel.y);
       this.parkSprites.tunnel = this.add.image(tn.x, tn.y, "tunnel").setScale(s * 1.85).setOrigin(0.5, 1).setDepth(tn.y + 8);
+      this.rebuildBlockers();
     }
 
     playPark(kind) {
@@ -1593,12 +1955,12 @@ function assetUrl(path) {
       this.walkTo(p.start.x, p.start.y, () => {
         const end = this.toWorld(p.end.x, p.end.y);
         const arch = this.parkSprites && this.parkSprites.tunnel;
-        if (arch) this.sheep.setDepth(arch.depth - 1);
+        if (arch) this._depthLock = arch.depth - 1;
         this.showAnim("walk");
         this.tweens.add({
           targets: this.sheep, x: end.x, y: end.y, duration: 700,
           onUpdate: () => this.layoutWear(),
-          onComplete: () => this.finishPlay("Through! 🪵"),
+          onComplete: () => { this._depthLock = null; this.finishPlay("Through! 🪵"); },
         });
       });
     }
@@ -1818,15 +2180,34 @@ function assetUrl(path) {
 
     update(_, dt) {
       if (this.target) {
-        const speed = 0.12 * this.fScale * dt; // px per ms scaled
-        const dx = this.target.x - this.sheep.x;
-        const dy = this.target.y - this.sheep.y;
+        if (this.footX == null) { this.footX = this.sheep.x; this.footY = this.sheep.y; }
+        const speed = 0.12 * this.fScale * dt;
+        const dx = this.target.x - this.footX;
+        const dy = this.target.y - this.footY;
         const dist = Math.hypot(dx, dy);
         if (dist < 4) this.arrive();
         else {
-          this.sheep.x += (dx / dist) * Math.min(speed, dist);
-          this.sheep.y += (dy / dist) * Math.min(speed, dist);
+          const step = Math.min(speed, dist);
+          let nx = this.footX + (dx / dist) * step;
+          let ny = this.footY + (dy / dist) * step;
+          const destF = this._waypoints && this._waypoints.length
+            ? this._waypoints[this._waypoints.length - 1]
+            : this.toField(this.target.x, this.target.y);
+          const nf = this.toField(nx, ny);
+          if (this.hitsBlocker(nf.x, nf.y)) {
+            const ox = this.footX + (dx / dist) * step, oy = this.footY;
+            const ofx = this.toField(ox, oy);
+            if (!this.hitsBlocker(ofx.x, ofx.y)) { nx = ox; ny = oy; }
+            else {
+              const ox2 = this.footX, oy2 = this.footY + (dy / dist) * step;
+              const ofy = this.toField(ox2, oy2);
+              if (!this.hitsBlocker(ofy.x, ofy.y)) { nx = ox2; ny = oy2; }
+            }
+          }
+          this.footX = nx;
+          this.footY = ny;
           this.setFacing(dx);
+          this.applyWalkMotion();
           this.layoutWear();
         }
       } else if (this.mode === "idle" && this.time.now > this.idleAt) {
@@ -2375,6 +2756,60 @@ function assetUrl(path) {
     $("looks").classList.remove("hidden");
   }
   function closeLooks() { $("looks").classList.add("hidden"); }
+
+  function openRehome() {
+    if (!state || !state.pet) return;
+    closeLooks();
+    const name = state.pet.name || "This pet";
+    if ($("rehomeConfirmLead")) $("rehomeConfirmLead").textContent = name + " can go to a new home.";
+    if ($("rehomeConfirm")) $("rehomeConfirm").classList.remove("hidden");
+  }
+  function closeRehomeConfirm() {
+    if ($("rehomeConfirm")) $("rehomeConfirm").classList.add("hidden");
+  }
+  function closeRehomeBye() {
+    if ($("rehomeBye")) $("rehomeBye").classList.add("hidden");
+    const leftover = ((state && state.pets) || []).length;
+    if (!leftover) openAdopt();
+  }
+  function confirmRehome() {
+    if (!state || !state.pet) return;
+    const name = state.pet.name || "This pet";
+    const i = typeof state.activePet === "number" ? state.activePet : 0;
+    const pets = state.pets || [];
+    if (i < 0 || i >= pets.length) return;
+    pets.splice(i, 1);
+    state.pets = pets;
+    closeRehomeConfirm();
+    if (pets.length) {
+      state.activePet = Math.min(i, pets.length - 1);
+      state.pet = pets[state.activePet];
+      viewSlot = state.activePet;
+      persistStaticPet();
+      applySceneForPet();
+      renderHud();
+      renderLooks();
+      renderPetChrome();
+    } else {
+      state.pet = null;
+      state.activePet = 0;
+      viewSlot = 0;
+      persistStaticPet();
+      if (pasture && pasture.sheep) {
+        pasture.sheep.setVisible(false);
+        if (pasture.costume) pasture.costume.setVisible(false);
+        if (pasture.collar) pasture.collar.setVisible(false);
+        if (pasture.partyHat) pasture.partyHat.setVisible(false);
+      }
+      if (pasture && pasture.placeCareItems) pasture.placeCareItems();
+      if (pasture && pasture.placeHomeDecor) pasture.placeHomeDecor();
+      renderHud();
+      renderPetChrome();
+    }
+    if ($("rehomeByeTitle")) $("rehomeByeTitle").textContent = "Take care, " + name + ".";
+    if ($("rehomeByeLead")) $("rehomeByeLead").textContent = name + " has a kind new home now.";
+    if ($("rehomeBye")) $("rehomeBye").classList.remove("hidden");
+  }
   function showLooksTab(which) {
     which = which || "looks";
     const tabs = { looks: $("tabLooks"), items: $("tabItems"), field: $("tabField") };
@@ -2465,6 +2900,14 @@ function assetUrl(path) {
       else if (act === "friend") openFriend();
     });
     $("looksClose").addEventListener("click", closeLooks);
+    const rehomeBtn = $("rehomeBtn");
+    if (rehomeBtn) rehomeBtn.addEventListener("click", openRehome);
+    const rehomeNo = $("rehomeNo");
+    if (rehomeNo) rehomeNo.addEventListener("click", closeRehomeConfirm);
+    const rehomeYes = $("rehomeYes");
+    if (rehomeYes) rehomeYes.addEventListener("click", confirmRehome);
+    const rehomeByeOk = $("rehomeByeOk");
+    if (rehomeByeOk) rehomeByeOk.addEventListener("click", closeRehomeBye);
     const tabLooks = $("tabLooks");
     const tabItems = $("tabItems");
     const tabField = $("tabField");
@@ -2485,11 +2928,13 @@ function assetUrl(path) {
   function defaultAdoptPick(speciesId) {
     const sp = window.MyPetSpecies && MyPetSpecies.of(speciesId || "sheep_valais");
     const def = (sp && sp.defaults) || { wool: "white", face: "black", eyes: "white" };
-    return {
+    const pick = {
       species: (sp && sp.id) || "sheep_valais",
       wool: def.wool, face: def.face, eyes: def.eyes,
       field: (sp && sp.defaultField) || "meadow",
     };
+    if (window.MyPetColor && MyPetColor.ensureDye) MyPetColor.ensureDye(pick);
+    return pick;
   }
   function renderSpeciesCards() {
     const row = $("speciesRow");
@@ -2523,6 +2968,8 @@ function assetUrl(path) {
       b.appendChild(name);
       b.addEventListener("click", () => {
         window._adoptPick = defaultAdoptPick(s.id);
+        const ac = $("adoptColors");
+        if (ac) ac.dataset.dyeSig = "";
         bindAdoptColors();
         renderSpeciesCards();
         renderAdoptFields();
@@ -2682,27 +3129,51 @@ function assetUrl(path) {
     busy = false;
   }
 
+  function renderSlotGrid(host, n, unlocked, max) {
+    const grid = document.createElement("div");
+    grid.className = "slot-grid";
+    for (let i = 0; i < max; i++) {
+      const cell = document.createElement("button");
+      cell.type = "button";
+      let kind = "lock", label = "🔒";
+      if (i < n) { kind = "filled"; label = "🐾"; }
+      else if (i < unlocked) { kind = "plus"; label = "➕"; }
+      cell.className = "slot-cell " + kind + (viewSlot === i || (i >= n && viewSlot >= n && i === n) ? " here" : "");
+      cell.textContent = label;
+      cell.title = i < n
+        ? ((state.pets[i] && state.pets[i].name) || ("Pet " + (i + 1)))
+        : (i < unlocked ? "Adopt" : "Locked");
+      const idx = i < n ? i : n;
+      cell.addEventListener("click", () => goToSlot(idx));
+      grid.appendChild(cell);
+    }
+    host.appendChild(grid);
+  }
+
   function renderSlotCard(locked) {
     const card = $("slotCard");
     if (!card) return;
-    const need = window.MyPetRoster ? MyPetRoster.slotAt((state.pets || []).length + 1) : 30;
+    const n = ((state && state.pets) || []).length;
+    const need = window.MyPetRoster ? MyPetRoster.slotAt(n + 1) : 30;
     const have = window.MyPetRoster ? MyPetRoster.totalHearts(state) : 0;
+    const unlocked = window.MyPetRoster ? MyPetRoster.unlockedSlots(state) : 1;
+    const max = window.MyPetRoster ? MyPetRoster.MAX_SLOTS : 14;
     card.innerHTML = "";
+    const title = document.createElement("div"); title.className = "slot-title";
+    title.textContent = locked ? "Soon" : "Adopt";
+    card.appendChild(title);
+    renderSlotGrid(card, n, unlocked, max);
     if (locked) {
       const pct = Math.min(100, Math.round((have / Math.max(need, 1)) * 100));
-      const lock = document.createElement("div"); lock.className = "slot-lock"; lock.textContent = "🔒";
-      const title = document.createElement("div"); title.className = "slot-title"; title.textContent = "Soon";
       const needP = document.createElement("p"); needP.className = "slot-need"; needP.textContent = "Need 💗 " + need;
       const bar = document.createElement("div"); bar.className = "heart-bar"; bar.setAttribute("aria-label", "Hearts");
       const fill = document.createElement("span"); fill.style.width = pct + "%"; bar.appendChild(fill);
       const haveP = document.createElement("p"); haveP.className = "slot-need"; haveP.textContent = "💗 " + have + " / " + need;
-      card.appendChild(lock); card.appendChild(title); card.appendChild(needP); card.appendChild(bar); card.appendChild(haveP);
+      card.appendChild(needP); card.appendChild(bar); card.appendChild(haveP);
     } else {
-      const plus = document.createElement("div"); plus.className = "slot-plus"; plus.textContent = "➕";
-      const title = document.createElement("div"); title.className = "slot-title"; title.textContent = "Adopt";
       const btn = document.createElement("button"); btn.type = "button"; btn.className = "big"; btn.id = "slotAdoptBtn"; btn.textContent = "💗 Adopt";
       btn.addEventListener("click", () => openAdopt());
-      card.appendChild(plus); card.appendChild(title); card.appendChild(btn);
+      card.appendChild(btn);
     }
   }
 
@@ -2715,43 +3186,44 @@ function assetUrl(path) {
     const prev = $("petPrev");
     const next = $("petNext");
     const pane = $("slotPane");
-    if (!hasPet) {
-      if (dots) dots.classList.add("hidden");
-      if (prev) prev.classList.add("hidden");
-      if (next) next.classList.add("hidden");
-      if (pane) pane.classList.add("hidden");
-      return;
-    }
     const unlocked = window.MyPetRoster ? MyPetRoster.unlockedSlots(state) : 1;
-    if (viewSlot == null) viewSlot = state.activePet || 0;
+    const max = window.MyPetRoster ? MyPetRoster.MAX_SLOTS : 14;
+    if (viewSlot == null) viewSlot = (state && state.activePet) || 0;
     if (viewSlot < 0) viewSlot = 0;
     if (viewSlot > n) viewSlot = n;
     if (dots) {
       dots.classList.remove("hidden");
       dots.innerHTML = "";
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < max; i++) {
         const b = document.createElement("button");
         b.type = "button";
-        b.className = "pet-dot" + (viewSlot === i ? " on" : "");
-        const name = (state.pets[i] && state.pets[i].name) || ("Pet " + (i + 1));
-        b.title = name;
-        b.setAttribute("aria-label", name);
-        b.addEventListener("click", () => goToSlot(i));
+        if (i < n) {
+          b.className = "pet-dot" + (viewSlot === i ? " on" : "");
+          const name = (state.pets[i] && state.pets[i].name) || ("Pet " + (i + 1));
+          b.title = name;
+          b.setAttribute("aria-label", name);
+          b.addEventListener("click", () => goToSlot(i));
+        } else if (i < unlocked) {
+          b.className = "pet-dot plus" + (viewSlot === n && i === n ? " on" : "");
+          b.textContent = "➕";
+          b.title = "Adopt";
+          b.setAttribute("aria-label", "Adopt");
+          b.addEventListener("click", () => goToSlot(n));
+        } else {
+          b.className = "pet-dot lock";
+          b.textContent = "🔒";
+          b.title = "Locked";
+          b.setAttribute("aria-label", "Locked");
+          b.addEventListener("click", () => goToSlot(n));
+        }
         dots.appendChild(b);
       }
-      const trail = document.createElement("button");
-      trail.type = "button";
-      const locked = n >= unlocked;
-      trail.className = "pet-dot " + (locked ? "lock" : "plus") + (viewSlot === n ? " on" : "");
-      trail.textContent = locked ? "🔒" : "➕";
-      trail.title = locked ? "Locked" : "Adopt";
-      trail.addEventListener("click", () => goToSlot(n));
-      dots.appendChild(trail);
     }
-    if (prev) prev.classList.toggle("hidden", viewSlot <= 0);
-    if (next) next.classList.toggle("hidden", viewSlot >= n);
+    const onSlots = viewSlot >= n || !hasPet;
+    if (prev) prev.classList.toggle("hidden", viewSlot <= 0 || onSlots);
+    if (next) next.classList.toggle("hidden", viewSlot >= n || onSlots);
     if (pane) {
-      if (viewSlot >= n) {
+      if (viewSlot >= n || !hasPet) {
         pane.classList.remove("hidden");
         renderSlotCard(n >= unlocked);
       } else {
@@ -2968,6 +3440,7 @@ function assetUrl(path) {
           wool: pick.wool,
           face: pick.face,
           eyes: pick.eyes,
+          dye: pick.dye,
           fieldTheme: pick.field || "meadow",
         });
         if (window.MyPetColor) MyPetColor.migratePet(pet);
@@ -2982,6 +3455,7 @@ function assetUrl(path) {
         pet.wool = pick.wool;
         pet.face = pick.face;
         pet.eyes = pick.eyes;
+        if (pick.dye) pet.dye = JSON.parse(JSON.stringify(pick.dye));
         pet.fieldTheme = pick.field || (window.MyPetSpecies && MyPetSpecies.of(pet).defaultField) || "meadow";
         if (window.MyPetSpecies) {
           pet.items = MyPetSpecies.defaultItems(pet);
@@ -3058,11 +3532,32 @@ function assetUrl(path) {
         if (wool) state.pet.wool = wool;
         if (face) state.pet.face = face;
         if (eyes) state.pet.eyes = eyes;
+        if (state.pet.dye) {
+          ["wool", "face", "eyes"].forEach((k) => {
+            if (state.pet.dye[k]) state.pet.dye[k].custom = false;
+          });
+        }
         if (window.MyPetColor) MyPetColor.migratePet(state.pet);
         persistStaticPet();
         applyPetLook();
         renderLooks();
         refreshAdoptPreview();
+      },
+      setDye: (key, dye) => {
+        if (!state || !state.pet || !dye) return;
+        if (!state.pet.dye) state.pet.dye = {};
+        const next = { h: +dye.h || 0, s: +dye.s || 0, l: (dye.l == null ? 0.5 : +dye.l), custom: true };
+        if (key === "all") {
+          ["wool", "face"].forEach((k) => { state.pet.dye[k] = Object.assign({}, next); state.pet[k] = "custom"; });
+        } else {
+          state.pet.dye[key] = next;
+          state.pet[key] = "custom";
+        }
+        persistStaticPet();
+        applyPetLook();
+        const box = $("looksColors");
+        if (box) box.dataset.dyeSig = "";
+        renderLooks();
       },
       setCostumeColor,
       applyPetLook,
@@ -3120,6 +3615,13 @@ function assetUrl(path) {
       renderPetChrome,
       prepareAdoptPaper,
       maybeCelebrateBirthday,
+      walkTo: (fx, fy, then) => { if (pasture) pasture.walkTo(fx, fy, then); },
+      placeField: (fx, fy) => {
+        if (!pasture || !pasture.toWorld) return;
+        const p = pasture.toWorld(fx, fy);
+        pasture.place(p.x, p.y);
+      },
+      openRehome,
     };
     setTimeout(() => maybeCelebrateBirthday(), 800);
   }
@@ -3162,50 +3664,25 @@ function assetUrl(path) {
 
   window._adoptPick = defaultAdoptPick("sheep_valais");
 
-  function makeSwatches(el, order, names, pal, current, onPick) {
-    if (!el) return;
-    el.innerHTML = "";
-    order.forEach((id) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "swatch" + (current === id ? " on" : "");
-      btn.title = names[id] || id;
-      btn.setAttribute("aria-label", names[id] || id);
-      const entry = pal[id];
-      btn.style.background = (entry && entry.hex) || "#eee";
-      btn.addEventListener("click", () => onPick(id));
-      el.appendChild(btn);
-    });
-  }
   function bindAdoptColors() {
-    if (!window.MyPetColor) return;
+    const box = $("adoptColors");
+    if (!box || !window.MyPetColor) return;
     const pick = window._adoptPick || defaultAdoptPick("sheep_valais");
-    const sp = window.MyPetSpecies && MyPetSpecies.of(pick.species);
-    const slots = (sp && sp.colorSlots) || [
-      { key: "wool", label: "Wool", pal: "WOOL" },
-      { key: "face", label: "Face", pal: "FACE" },
-      { key: "eyes", label: "Eyes", pal: "EYES" },
-    ];
-    const labs = { wool: $("woolLab"), face: $("faceLab"), eyes: $("eyesLab") };
-    const boxes = { wool: $("woolSwatches"), face: $("faceSwatches"), eyes: $("eyeSwatches") };
-    ["wool", "face", "eyes"].forEach((key) => {
-      const lab = labs[key];
-      const row = lab && lab.parentElement;
-      const used = slots.some((s) => s.key === key);
-      if (row) row.style.display = used ? "" : "none";
-    });
-    slots.forEach((slot) => {
-      if (labs[slot.key]) labs[slot.key].textContent = slot.label;
-      const pal = MyPetColor.PALS && MyPetColor.PALS[slot.pal];
-      const order = pal ? pal.order : MyPetColor[slot.pal + "_ORDER"] || MyPetColor.WOOL_ORDER;
-      const names = pal ? pal.names : MyPetColor[slot.pal + "_NAMES"] || MyPetColor.WOOL_NAMES;
-      const map = pal ? pal.map : MyPetColor[slot.pal] || MyPetColor.WOOL;
-      makeSwatches(boxes[slot.key], order, names, map, pick[slot.key], (id) => {
-        pick[slot.key] = id;
-        bindAdoptColors();
-        renderSpeciesCards();
-        refreshAdoptPreview();
-      });
+    window._adoptPick = pick;
+    if (MyPetColor.ensureDye) MyPetColor.ensureDye(pick);
+    // Force rebuild when species changes; live slider updates stay in place
+    renderColorPickers(box, pick, (model, ev) => {
+      window._adoptPick = model;
+      if (ev && ev.from === "slider" && !ev.done) {
+        clearTimeout(bindAdoptColors._t);
+        bindAdoptColors._t = setTimeout(() => {
+          renderSpeciesCards();
+          refreshAdoptPreview();
+        }, 40);
+        return;
+      }
+      renderSpeciesCards();
+      refreshAdoptPreview();
     });
   }
   function refreshAdoptPreview() {
