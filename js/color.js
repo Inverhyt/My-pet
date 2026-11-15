@@ -681,7 +681,7 @@
 
   const HUE_SPEC = {
     fox:      { body: { h: [8, 46], s: [0.35, 1], l: [0.18, 0.82] } },
-    capybara: { body: { h: [12, 45], s: [0.25, 1], l: [0.18, 0.78] } },
+    capybara: { body: { h: [8, 50], s: [0.15, 1], l: [0.12, 0.78] } }, // incl. dark paws so they dye evenly
     rock:     { body: { s: [0, 0.18], l: [0.18, 0.8] }, keep: { h: [70, 160], s: [0.2, 1] } }, // moss stays
     dragon:   { body: { h: [135, 180], s: [0.15, 1], l: [0.28, 0.88] }, secondary: { h: [240, 320], s: [0.12, 1], l: [0.25, 0.88] } },
     kiwi:     { body: { h: [10, 42], s: [0.25, 1], l: [0.16, 0.62] }, keep: { h: [22, 55], s: [0.25, 1], l: [0.48, 0.8] } }, // beak/feet
