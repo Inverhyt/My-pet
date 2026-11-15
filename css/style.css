@@ -403,7 +403,6 @@ button.swatch:active { transform: translateY(2px); box-shadow: none; }
   margin-top: 8px;
 }
 #looks #looksClose { position: static; margin-top: 8px; margin-bottom: 0; }
-#looks #rehomeBtn { margin-top: 0; }
 #looks .looks-colors { padding-bottom: 10px; }
 
 @media (max-width: 500px) {
@@ -602,7 +601,7 @@ body.sky-day .topbar {
   top: 46%;
   transform: translate(-50%, -50%);
   z-index: 7;
-  width: min(300px, 78%);
+  width: min(340px, 86%);
   pointer-events: auto;
 }
 .slot-card {
@@ -939,9 +938,11 @@ body.sky-day .topbar {
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   margin: 8px 0 12px;
+  align-items: start;
 }
 .slot-cell {
   aspect-ratio: 1;
+  width: 100%;
   border: 2px solid var(--brown);
   border-radius: 10px;
   background: #fff;
@@ -954,10 +955,29 @@ body.sky-day .topbar {
   cursor: pointer;
   color: var(--ink);
 }
-.slot-cell.here { background: var(--pink); }
+.slot-cell.here, .slot-spot.here .slot-cell { background: var(--pink); }
 .slot-cell.lock { background: #efe4d4; }
 .slot-cell.plus { background: #fffaf3; }
-#rehomeBtn { margin-top: 8px; }
+.slot-spot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.slot-rehome {
+  border: 2px solid var(--brown);
+  border-radius: 8px;
+  background: #f4c16e;
+  font-weight: 800;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  padding: 4px 1px;
+  cursor: pointer;
+  color: var(--ink);
+  box-shadow: 0 1px 0 var(--line);
+  text-align: center;
+}
+.slot-rehome:active { transform: translateY(1px); box-shadow: none; }
 #rehomeConfirm .lead, #rehomeBye .lead { font-size: 1.1rem; }
 @media (max-width: 500px) {
   #looks button.swatch { width: 38px; height: 38px; border-radius: 12px; }
