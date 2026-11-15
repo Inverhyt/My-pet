@@ -9,7 +9,7 @@
   <base href="./">
   <meta name="theme-color" content="#c5dff2">
   <title>My Pet</title>
-  <link rel="stylesheet" href="css/style.css?v=10">
+  <link rel="stylesheet" href="css/style.css?v=12">
 </head>
 <body>
   <div id="app">
@@ -57,31 +57,26 @@
     <div id="adopt" class="overlay hidden">
       <div class="paper" id="adoptPaper">
         <div class="paper-doodle" aria-hidden="true"></div>
-        <img class="paper-seal" src="assets/seal.png?v=10" alt="">
+        <img class="paper-seal" src="assets/seal.png?v=12" alt="">
         <h1>📜 Adopt</h1>
         <p class="lead">A new friend.</p>
         <div class="paper-date">🎂 Birthday <span id="adoptDate">Today</span></div>
 
-        <div class="species-row" id="speciesRow">
-          <button type="button" class="species-card on" id="pickPet" data-id="sheep_valais">
-            <img id="adoptPreview" src="assets/sheep_idle.png?v=10" alt="Valais sheep">
-            <span>🐑 Valais</span>
-          </button>
-        </div>
+        <div class="species-row" id="speciesRow"></div>
         <div class="soon-label">Coming soon</div>
         <div id="soonRow" class="soon-row"></div>
 
         <div id="adoptColors" class="adopt-colors">
           <div class="swatch-row">
-            <div class="lab">Wool</div>
+            <div class="lab" id="woolLab">Wool</div>
             <div class="swatches" id="woolSwatches"></div>
           </div>
           <div class="swatch-row">
-            <div class="lab">Face</div>
+            <div class="lab" id="faceLab">Face</div>
             <div class="swatches" id="faceSwatches"></div>
           </div>
           <div class="swatch-row">
-            <div class="lab">Eyes</div>
+            <div class="lab" id="eyesLab">Eyes</div>
             <div class="swatches" id="eyeSwatches"></div>
           </div>
         </div>
@@ -93,7 +88,7 @@
         <input id="nameInput" type="text" maxlength="24" placeholder="Biscuit" autocomplete="off" spellcheck="false">
         <button type="button" class="big" id="adoptBtn">💗 Adopt</button>
         <div id="stampFx" class="stamp-fx hidden">
-          <img class="stamp-seal" src="assets/seal.png?v=10" alt="">
+          <img class="stamp-seal" src="assets/seal.png?v=12" alt="">
         </div>
         <div id="confetti" class="confetti"></div>
       </div>
@@ -103,6 +98,7 @@
       <div class="card">
         <div class="looks-tabs" role="tablist">
           <button type="button" class="tab on" id="tabLooks">👕 Looks</button>
+          <button type="button" class="tab" id="tabItems">🛋️ Items</button>
           <button type="button" class="tab" id="tabField">🌿 Field</button>
         </div>
         <div id="looksPane">
@@ -110,6 +106,11 @@
           <p class="lead">Care for your pet to unlock these.</p>
           <div class="looks-grid" id="looksGrid"></div>
           <div id="looksColors" class="looks-colors"></div>
+        </div>
+        <div id="itemsPane" class="hidden">
+          <h2>🛋️ Items</h2>
+          <p class="lead">Pick water, food, and a bed. All free.</p>
+          <div id="itemsGrid"></div>
         </div>
         <div id="fieldPane" class="hidden">
           <h2>🌿 Field</h2>
@@ -168,7 +169,7 @@
         <div id="bathSheepWrap" class="bath-wrap">
           <div class="tub"></div>
           <div id="bathActor" class="bath-actor">
-            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=10" alt="Sheep">
+            <img id="bathSheep" class="actor-sheep" src="assets/sheep_idle.png?v=12" alt="Sheep">
             <img id="bathHat" class="wear-hat hidden" alt="">
             <img id="bathCollar" class="wear-collar hidden" alt="">
           </div>
@@ -192,7 +193,7 @@
         </div>
         <div id="brushWrap" class="bath-wrap brush-wrap">
           <div id="brushActor" class="bath-actor">
-            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=10" alt="Sheep">
+            <img id="brushSheep" class="actor-sheep" src="assets/sheep_idle.png?v=12" alt="Sheep">
             <img id="brushHat" class="wear-hat hidden" alt="">
             <img id="brushCollar" class="wear-collar hidden" alt="">
           </div>
@@ -211,7 +212,7 @@
   </div>
 
   <script>
-    window.MYPET_ASSET_V = "10";
+    window.MYPET_ASSET_V = "12";
     window.ASSET_BASE = (function () {
       var p = location.pathname || "/";
       if (p.indexOf(".html") !== -1) p = p.replace(/[^/]+$/, "");
@@ -221,10 +222,11 @@
     window.MYPET_TEST_MODE = true;
   </script>
   <script src="vendor/phaser.min.js"></script>
-  <script src="js/api.js?v=10"></script>
-  <script src="js/color.js?v=10"></script>
-  <script src="js/world.js?v=10"></script>
-  <script src="js/pets.js?v=10"></script>
-  <script src="js/game.js?v=10"></script>
+  <script src="js/api.js?v=12"></script>
+  <script src="js/species.js?v=12"></script>
+  <script src="js/color.js?v=12"></script>
+  <script src="js/world.js?v=12"></script>
+  <script src="js/pets.js?v=12"></script>
+  <script src="js/game.js?v=12"></script>
 </body>
 </html>
