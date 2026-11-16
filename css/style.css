@@ -10,16 +10,23 @@
 }
 
 @font-face {
-  font-family: "Rowdies";
-  src: url("../fonts/rowdies-400.woff2") format("woff2");
-  font-weight: 400;
+  font-family: "Baloo 2";
+  src: url("../fonts/baloo2-600.woff2") format("woff2");
+  font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Rowdies";
-  src: url("../fonts/rowdies-700.woff2") format("woff2");
+  font-family: "Baloo 2";
+  src: url("../fonts/baloo2-700.woff2") format("woff2");
   font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Baloo 2";
+  src: url("../fonts/baloo2-800.woff2") format("woff2");
+  font-weight: 800;
   font-style: normal;
   font-display: swap;
 }
@@ -1102,7 +1109,7 @@ body.sky-day .topbar {
 .paper .dye-bar input[type="range"] { height: 22px; }
 
 
-/* --- v23 typography: self-hosted Rowdies + Lexend, cream labels --- */
+/* --- v26 typography: self-hosted Baloo 2 titles + Lexend small text, cream labels --- */
 .pet-name,
 .card h1, .card h2,
 .paper h1,
@@ -1111,9 +1118,14 @@ body.sky-day .topbar {
 .j-name,
 .soon,
 .bday-bonus {
-  font-family: "Rowdies", "Lexend", sans-serif;
+  font-family: "Baloo 2", "Lexend", sans-serif;
   font-weight: 700;
   letter-spacing: 0.01em;
+  line-height: 1.35;
+}
+.card h1, .paper h1, .boot-card {
+  font-weight: 800;
+  line-height: 1.3;
 }
 .lead, .j-meta, .j-empty, .item-pick .name, .field-pick .name, .look .need {
   font-weight: 400;
@@ -1121,7 +1133,7 @@ body.sky-day .topbar {
 
 .who .pet-name {
   display: inline-block;
-  font-family: "Rowdies", "Lexend", sans-serif;
+  font-family: "Baloo 2", "Lexend", sans-serif;
   font-weight: 700;
   font-size: 1.28rem;
   letter-spacing: 0.01em;
@@ -1129,13 +1141,13 @@ body.sky-day .topbar {
   background: var(--cream);
   border: 2px solid var(--brown);
   border-radius: 12px;
-  padding: 1px 10px 3px;
+  padding: 3px 10px 5px;
   box-shadow: 0 1px 0 rgba(138, 90, 58, 0.28);
   max-width: min(46vw, 230px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 .who .mood {
   display: inline-block;
@@ -1176,8 +1188,8 @@ body.sky-night .mood {
   text-shadow: none;
 }
 @media (max-width: 500px) {
-  .who .pet-name { font-size: 1.12rem; max-width: min(42vw, 180px); padding: 1px 8px 2px; }
-  .who .mood { font-size: 0.75rem; padding: 0 7px 1px; }
+  .who .pet-name { font-size: 1.12rem; max-width: min(42vw, 180px); padding: 3px 8px 5px; line-height: 1.4; }
+  .who .mood { font-size: 0.75rem; padding: 1px 7px 2px; }
   .meter-label, .name-label, .swatch-row .lab, .looks-colors .lab, .item-row .lab {
     font-size: 0.85rem; padding: 1px 8px;
   }
