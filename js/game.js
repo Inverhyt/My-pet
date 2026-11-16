@@ -4328,8 +4328,9 @@ function assetUrl(path) {
   function whenUiFontsReady() {
     if (!(document.fonts && document.fonts.load)) return Promise.resolve();
     const loads = [
-      document.fonts.load("700 32px Rowdies"),
-      document.fonts.load("400 24px Rowdies"),
+      document.fonts.load("800 32px \"Baloo 2\""),
+      document.fonts.load("700 32px \"Baloo 2\""),
+      document.fonts.load("600 24px \"Baloo 2\""),
       document.fonts.load("400 16px Lexend"),
       document.fonts.load("500 16px Lexend"),
       document.fonts.load("600 16px Lexend"),
