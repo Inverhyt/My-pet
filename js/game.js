@@ -328,20 +328,22 @@ function assetUrl(path) {
     },
     puppy_yard: {
       spots: {
-        trough: { x: 720, y: 760, r: 80, stand: { x: 720, y: 850 }, action: "eat", label: "eat" },
-        basin:  { x: 720, y: 300, r: 80, stand: { x: 720, y: 390 }, action: "drink", label: "drink" },
-        bed:    { x: 280, y: 280, r: 86, stand: { x: 280, y: 370 }, sleep: { x: 280, y: 280 }, action: "nap", label: "nap" },
+        trough: { x: 712, y: 723, r: 60, stand: { x: 750, y: 724 }, via: { x: 752, y: 640 }, face: "left", action: "eat", label: "eat" },
+        basin:  { x: 792, y: 723, r: 60, stand: { x: 830, y: 726 }, via: { x: 832, y: 640 }, face: "left", action: "drink", label: "drink" },
+        bed:    { x: 300, y: 290, r: 86, stand: { x: 315, y: 400 }, sleep: { x: 300, y: 290 }, nap: { x: 277, y: 341, flip: true }, action: "nap", label: "nap" },
       },
-      park: false,
-      pool: null,
-      beach: null,
-      oranges: null,
+      park: false, pool: null, beach: null, oranges: null,
       walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
       blockers: [
-        { id: "care-bed", x: 280, y: 280, key: "home_bed" },
-        { id: "care-water", x: 720, y: 300, key: "home_water" },
-        { id: "care-food", x: 720, y: 760, key: "home_food" },
-        { id: "home-play", x: 260, y: 740, key: "home_play" },
+        { id: "care-bed", x: 278, y: 320, rx: 85, ry: 35 },
+        { id: "dog-pool", x: 762, y: 330, rx: 95, ry: 45 },
+        { id: "dog-ball", x: 245, y: 700, rx: 50, ry: 30 },
+        { id: "care-food", x: 752, y: 730, rx: 85, ry: 25 },
+      ],
+      fronts: [{ key: "front_dog_house", x: 186, y: 156, base: 358 }, { key: "front_dog_pool", x: 664, y: 292, base: 384 }, { key: "front_dog_bowls", x: 680, y: 699, base: 746 }],
+      plays: [
+        { id: "pool", kind: "pool", x: 762, y: 310, r: 95, stand: { x: 760, y: 420 }, in: { x: 745, y: 368 }, pts: [{ x: 805, y: 366 }, { x: 712, y: 370 }, { x: 765, y: 365 }], shake: true, msg: "Splash! 💦" },
+        { id: "toy", kind: "toy", x: 290, y: 715, r: 85, stand: { x: 318, y: 775 }, ball: { x: 245, y: 690 }, bone: { x: 370, y: 750 }, msg: "Good dog! 🎾" },
       ],
       start: { x: 512, y: 520 },
     },
@@ -934,7 +936,7 @@ function assetUrl(path) {
     // Feet origin (0.5, 1): put the body, not the feet, on the sleep spot.
     return scene.toWorld(sleep.x, sleep.y + Math.round(h * 0.42));
   }
-  const FRONT_KEYS = ["front_cat_bed", "front_cat_bowls"];
+  const FRONT_KEYS = ["front_cat_bed", "front_cat_bowls", "front_dog_bowls", "front_dog_house", "front_dog_pool"];
   function fieldSpots() {
     const L = fieldLayout();
     return (L && L.spots) || SPOTS;
