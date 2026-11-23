@@ -859,6 +859,8 @@ body.sky-day .topbar {
   100% { transform: scale(1) rotate(-10deg); opacity: 1; }
 }
 .confetti { position: absolute; inset: 0; pointer-events: none; z-index: 9; overflow: hidden; }
+/* v33: confetti covers the whole screen and falls all the way to the bottom */
+body > .confetti { position: fixed; inset: 0; z-index: 9999; }
 .confetti i {
   position: absolute;
   top: -8px;
@@ -868,7 +870,7 @@ body.sky-day .topbar {
 }
 @keyframes confettifall {
   0% { transform: translateY(0) rotate(0); opacity: 1; }
-  100% { transform: translateY(420px) rotate(280deg); opacity: 0.2; }
+  100% { transform: translateY(calc(100vh + 40px)) rotate(280deg); opacity: 0.6; }
 }
 
 /* Journal */

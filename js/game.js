@@ -891,14 +891,13 @@ function assetUrl(path) {
 
   // Unflipped art is drawn facing left. These poses were drawn facing right,
   // so flipX must be inverted for that pose or the pet walks/eats backwards.
+  // v33: checked every frame by eye. Only these walk cycles face right; every
+  // eat/drink frame faces left, and Biscuit's walk faces left too.
   const POSE_FACE_RIGHT = {
-    fox: { walk: true, eat: true },
-    cat: { walk: true, eat: true },
+    fox: { walk: true },
+    cat: { walk: true },
     dragon: { walk: true },
     rat: { walk: true },
-    sheep_valais: { walk: true },
-    capybara: { eat: true },
-    dog: { eat: true },
   };
   function facingPoseKey(pose) {
     const k = String(pose || "idle").replace(/^_c_/, "");
@@ -1793,11 +1792,31 @@ function assetUrl(path) {
       }
     }
 
-    walkTo(fx, fy, then) {
+    walkTo(fx, fy, then, opts) {
       if (this.clearMood) this.clearMood();
       if (this.footX == null && this.sheep) { this.footX = this.sheep.x; this.footY = this.sheep.y; }
-      const dest = this.pushOut(fx, fy);
-      this._waypoints = this.buildPath(dest.x, dest.y);
+      this._ghostLast = false;
+      this._ghostLeg = false;
+      this._legBest = null;
+      this._exactEnd = null;
+      if (opts && opts.exact) {
+        // v33: care spots (bowls, beds) — path to the nearest open ground,
+        // then step straight onto the stand spot even if it sits in a prop's
+        // keep-out ring. Stops pets getting lost around their own bowls.
+        const ex = { x: this.clamp(fx), y: this.clampY(fy) };
+        if (this.hitsBlocker(ex.x, ex.y)) {
+          const near = this.nearestWalkable(ex.x, ex.y);
+          this._waypoints = this.buildPath(near.x, near.y);
+          this._waypoints.push(ex);
+          this._ghostLast = true;
+          this._exactEnd = { near: near, ex: ex };
+        } else {
+          this._waypoints = this.buildPath(ex.x, ex.y);
+        }
+      } else {
+        const dest = this.pushOut(fx, fy);
+        this._waypoints = this.buildPath(dest.x, dest.y);
+      }
       this._wpI = 0;
       const first = this._waypoints[0] || dest;
       const p = this.toWorld(first.x, first.y);
@@ -2120,6 +2139,8 @@ function assetUrl(path) {
 
     nextWaypoint() {
       this._wpI = (this._wpI || 0) + 1;
+      this._ghostLeg = false;
+      this._legBest = null;
       if (this._waypoints && this._wpI < this._waypoints.length) {
         const n = this._waypoints[this._wpI];
         this.target = this.toWorld(n.x, n.y);
@@ -2133,6 +2154,10 @@ function assetUrl(path) {
       if (this.nextWaypoint()) return;
       this.target = null;
       this._waypoints = null;
+      this._ghostLast = false;
+      this._ghostLeg = false;
+      this._legBest = null;
+      this._exactEnd = null;
       this.resetWalkPose();
       const fn = this.onArrive;
       this.onArrive = null;
@@ -2182,7 +2207,7 @@ function assetUrl(path) {
             updateMood();
           },
         });
-      });
+      }, { exact: true });
     }
     startZzz() {
       this.stopZzz();
@@ -3001,10 +3026,19 @@ function assetUrl(path) {
       if (busy) return;
       busy = true;
       this.walkTo(s.stand.x, s.stand.y, () => {
+        if (id === "trough" || id === "basin") this.faceSpot(s);
         if (id === "trough") this.doEat();
         else if (id === "basin") this.doDrink();
         else if (id === "bed") this.doNap(s);
-      });
+      }, { exact: true });
+    }
+
+    // v33: turn toward the bowl before eating/drinking (not the last walk direction).
+    faceSpot(s) {
+      if (!s || !this.sheep) return;
+      const at = this.toField(this.footX != null ? this.footX : this.sheep.x, this.footY != null ? this.footY : this.sheep.y);
+      const dx = s.x - at.x;
+      if (Math.abs(dx) >= 12) this._faceRight = dx > 0;
     }
 
     doEat() {
@@ -3150,7 +3184,7 @@ function assetUrl(path) {
       };
       const spots = fieldSpots();
       if (spots.basin) {
-        this.walkTo(spots.basin.stand.x, spots.basin.stand.y, openMini);
+        this.walkTo(spots.basin.stand.x, spots.basin.stand.y, openMini, { exact: true });
       } else if (this.inPoolFeet()) {
         openMini();
       } else {
@@ -3599,6 +3633,28 @@ function assetUrl(path) {
             ? this._waypoints[this._waypoints.length - 1]
             : this.toField(this.target.x, this.target.y);
           const nf = this.toField(nx, ny);
+          // v33: pass-through cases so pets never freeze in place:
+          //  - last step onto a care spot (bowl/bed stand),
+          //  - already standing inside a keep-out ring (after a nap, a push, etc.),
+          //  - no progress on this leg for ~0.9s.
+          const curF0 = this.toField(this.footX, this.footY);
+          const lastLeg = !!(this._waypoints && this._wpI >= this._waypoints.length - 1);
+          if (this._legBest == null || dist < this._legBest - 2) {
+            this._legBest = dist;
+            this._legT = this.time.now;
+          } else if (this.time.now - (this._legT || this.time.now) > 900) {
+            this._ghostLeg = true;
+          }
+          const ghost = (this._ghostLast && lastLeg) || this._ghostLeg || !!this.hitsBlocker(curF0.x, curF0.y);
+          if (ghost) {
+            this.footX = nx;
+            this.footY = ny;
+            this._stuckN = 0;
+            this.setFacing(dx);
+            this.applyWalkMotion();
+            this.syncLocomotion && this.syncLocomotion();
+            this.layoutWear();
+          } else {
           if (this.hitsBlocker(nf.x, nf.y)) {
             const ox = this.footX + (dx / dist) * step, oy = this.footY;
             const ofx = this.toField(ox, oy);
@@ -3630,7 +3686,13 @@ function assetUrl(path) {
                 this.layoutWear();
                 return;
               }
-              this._waypoints = this.buildPath(destF.x, destF.y);
+              if (this._exactEnd) {
+                // keep the final step onto the care spot after a re-path
+                this._waypoints = this.buildPath(this._exactEnd.near.x, this._exactEnd.near.y);
+                this._waypoints.push(this._exactEnd.ex);
+              } else {
+                this._waypoints = this.buildPath(destF.x, destF.y);
+              }
               this._wpI = 0;
               const first = this._waypoints && this._waypoints[0];
               if (first) this.target = this.toWorld(first.x, first.y);
@@ -3650,6 +3712,7 @@ function assetUrl(path) {
             }
             this.syncLocomotion && this.syncLocomotion();
             this.layoutWear();
+          }
           }
         }
       } else if (this.mode === "idle" && this.time.now > this.idleAt) {
@@ -4554,6 +4617,8 @@ function assetUrl(path) {
         fx.classList.add("go");
       }
       if (conf) {
+        // v33: lift confetti to the page so it falls past the whole UI, not half the card.
+        if (conf.parentNode !== document.body) document.body.appendChild(conf);
         conf.innerHTML = "";
         const colors = ["#e8899a", "#f3d291", "#8fd3a0", "#8ec8e8", "#d4a0e8", "#f3b36a", "#fff"];
         for (let i = 0; i < 36; i++) {
@@ -4563,11 +4628,12 @@ function assetUrl(path) {
           el.style.width = (8 + Math.random() * 8) + "px";
           el.style.height = (12 + Math.random() * 10) + "px";
           el.style.animationDelay = (Math.random() * 0.2) + "s";
-          el.style.animationDuration = (0.85 + Math.random() * 0.5) + "s";
+          el.style.animationDuration = (1.5 + Math.random() * 0.8) + "s";
           conf.appendChild(el);
         }
       }
       blip("unlock");
+      if (conf) setTimeout(() => { conf.innerHTML = ""; }, 2600);
       setTimeout(resolve, 900);
     });
   }
@@ -5167,6 +5233,7 @@ function assetUrl(path) {
       oranges: () => (pasture && pasture.oranges) || [],
       collectOrange: (i) => { if (pasture && pasture.oranges && pasture.oranges[i]) pasture.collectOrange(pasture.oranges[i]); },
       dropOranges: (instant) => { if (pasture && pasture.dropOranges) pasture.dropOranges(instant); },
+      fieldSpots: () => fieldSpots(),
       fieldId: () => currentFieldId(),
       openRehome,
     };
