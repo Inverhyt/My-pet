@@ -221,7 +221,27 @@ function assetUrl(path) {
     el.textContent = msg;
     el.classList.add("show");
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => el.classList.remove("show"), ms);
+    toast._until = Date.now() + ms;
+    toast._t = setTimeout(() => {
+      el.classList.remove("show");
+      toast._until = 0;
+      const next = (toast._q || []).shift();
+      if (next) toast(next.msg, next.ms);
+    }, ms);
+  }
+  function toastWhenFree(msg, ms = 2200) {
+    const wait = Math.max(0, (toast._until || 0) - Date.now()) + 80;
+    if (wait <= 80 && !($("toast") && $("toast").classList.contains("show"))) {
+      toast(msg, ms);
+      return;
+    }
+    (toast._q || (toast._q = [])).push({ msg: msg, ms: ms });
+    if (wait > 80 && !toast._t) {
+      toast._t = setTimeout(() => {
+        const next = (toast._q || []).shift();
+        if (next) toast(next.msg, next.ms);
+      }, wait);
+    }
   }
 
   function blip(kind) {
@@ -669,6 +689,52 @@ function assetUrl(path) {
     const L = fieldLayout();
     return (L && L.walk) || WALK;
   }
+
+  // Unflipped art is drawn facing left. These poses were drawn facing right,
+  // so flipX must be inverted for that pose or the pet walks/eats backwards.
+  const POSE_FACE_RIGHT = {
+    fox: { walk: true, eat: true },
+    cat: { walk: true, eat: true },
+    dragon: { walk: true },
+    rat: { walk: true },
+    sheep_valais: { walk: true },
+    capybara: { eat: true },
+    dog: { eat: true },
+  };
+  function facingPoseKey(pose) {
+    const k = String(pose || "idle").replace(/^_c_/, "");
+    if (k === "walk" || /^walk\d/.test(k)) return "walk";
+    if (k === "swim" || /^swim\d/.test(k)) return "swim";
+    return k;
+  }
+  function poseArtFacesRight(pose) {
+    const sp = currentSpecies && currentSpecies();
+    if (!sp) return false;
+    const row = POSE_FACE_RIGHT[sp.id];
+    return !!(row && row[facingPoseKey(pose)]);
+  }
+  function poseNameOf(scene) {
+    if (!scene) return "idle";
+    if (typeof scene.poseName === "function") return scene.poseName();
+    if (scene.mode === "walk") return "walk";
+    if (scene.mode === "eat") return "eat";
+    return "idle";
+  }
+  function napFootWorld(scene, s) {
+    const sleep = (s && s.sleep) || s || { x: 512, y: 560 };
+    let h = 110;
+    if (scene && scene.textures) {
+      const key = scene.textures.exists(liveKey("sleep")) ? liveKey("sleep") : (scene.textures.exists("sleep") ? "sleep" : null);
+      if (key) {
+        const tex = scene.textures.get(key);
+        const src = tex && tex.getSourceImage && tex.getSourceImage();
+        if (src) h = src.naturalHeight || src.height || h;
+        else if (tex && tex.frames && tex.frames.__BASE) h = tex.frames.__BASE.height || h;
+      }
+    }
+    // Feet origin (0.5, 1): put the body, not the feet, on the sleep spot.
+    return scene.toWorld(sleep.x, sleep.y + Math.round(h * 0.42));
+  }
   function fieldSpots() {
     const L = fieldLayout();
     return (L && L.spots) || SPOTS;
@@ -1095,7 +1161,7 @@ function assetUrl(path) {
     renderHud();
     renderPetChrome();
     if (res.coin_awarded) {
-      toast("+1 coin 🪙");
+      toastWhenFree("+1 coin 🪙");
       blip("coin");
     }
     if ((res.new_unlocks && res.new_unlocks.length) || grantedExtra.length) {
@@ -1181,7 +1247,7 @@ function assetUrl(path) {
       this.bunting = this.add.image(this.fieldX + FIELD * scale / 2, this.fieldY + 108 * scale, "bunting")
         .setOrigin(0.5, 0).setVisible(false).setDepth(8);
       this.bunting.setDisplaySize(864 * scale, 48 * scale * 1.35);
-      this.skyTint = this.add.rectangle(this.fieldX, this.fieldY, FIELD * scale, FIELD * scale, 0x152044, 0).setOrigin(0, 0).setDepth(8000);
+      this.skyTint = this.add.rectangle(this.fieldX, this.fieldY, FIELD * scale, FIELD * scale, 0x152044, 0).setOrigin(0, 0).setDepth(1);
       this.stars = [];
       this.wxGfx = this.add.graphics().setDepth(8010);
       this.rainbow = this.add.graphics().setDepth(3);
@@ -1416,8 +1482,16 @@ function assetUrl(path) {
     }
 
     setFacing(dx) {
-      if (Math.abs(dx) < 0.5) return;
-      const want = dx > 0;
+      if (Math.abs(dx) >= 0.5) this._faceRight = dx > 0;
+      this.applyFacing();
+    }
+
+    applyFacing(pose) {
+      if (!this.sheep) return;
+      if (this._faceRight == null) this._faceRight = false;
+      let want = !!this._faceRight;
+      const key = pose || poseNameOf(this);
+      if (poseArtFacesRight(key)) want = !want;
       if (this.sheep.flipX !== want) this.sheep.setFlipX(want);
       this.layoutWear();
     }
@@ -1466,6 +1540,7 @@ function assetUrl(path) {
       } else {
         this.sheep.setTexture(this.textures.exists(liveKey(key)) ? liveKey(key) : key);
       }
+      this.applyFacing(key);
     }
 
     inPoolAt(fx, fy) {
@@ -1893,7 +1968,7 @@ function assetUrl(path) {
       this.walkTo(s.stand.x, s.stand.y, () => {
         this._bedWalk = false;
         if (busy || !MyPetWorld.isNight()) { this.goIdle(); return; }
-        const dest = this.toWorld(s.sleep.x, s.sleep.y + 8);
+        const dest = napFootWorld(this, s);
         this.tweens.add({
           targets: this.sheep, x: dest.x, y: dest.y, duration: 400,
           onUpdate: () => this.layoutWear(),
@@ -2757,7 +2832,7 @@ function assetUrl(path) {
     }
 
     doNap(s) {
-      const dest = this.toWorld(s.sleep.x, s.sleep.y + 8);
+      const dest = napFootWorld(this, s);
       this.tweens.add({
         targets: this.sheep, x: dest.x, y: dest.y, duration: 400,
         onUpdate: () => this.layoutWear(),
@@ -3913,6 +3988,11 @@ function assetUrl(path) {
     const a = allowedFieldIds(pet || (state && state.pet));
     return !!(a && a.length > 1);
   }
+  function canPickItems() {
+    const id = currentFieldId();
+    // Food, water, and bed are painted into these maps; changing items would not show.
+    return !(id === "meadow" || id === "capy_spa" || id === "autumn_den" || id === "pebble_yard");
+  }
   async function openLooks() {
     try { state = Object.assign(state || {}, await MyPetApi.me()); } catch (e) {}
     grantStaticUnlocks();
@@ -3920,6 +4000,8 @@ function assetUrl(path) {
     renderLooks();
     const tabField = $("tabField");
     if (tabField) tabField.classList.toggle("hidden", !canPickField());
+    const tabItems = $("tabItems");
+    if (tabItems) tabItems.classList.toggle("hidden", !canPickItems());
     showLooksTab("looks");
     $("looks").classList.remove("hidden");
   }
@@ -3998,7 +4080,10 @@ function assetUrl(path) {
       if (!canPickField()) { showLooksTab("looks"); return; }
       renderFieldPicker();
     }
-    if (which === "items") renderItemsPicker();
+    if (which === "items") {
+      if (!canPickItems()) { showLooksTab("looks"); return; }
+      renderItemsPicker();
+    }
   }
   function renderItemsPicker() {
     const box = $("itemsGrid");
@@ -4760,7 +4845,7 @@ function assetUrl(path) {
     });
     window.__mypet = {
       game, get pasture() { return pasture; }, get state() { return state; },
-      toast, doCare, renderHud, addHearts: addTestHearts,
+      toast, toastWhenFree, doCare, renderHud, addHearts: addTestHearts,
       openBath: openBathMini,
       startBathRinse: () => openBathMini._api && openBathMini._api.startRinse(),
       startBathDry: () => openBathMini._api && openBathMini._api.startDry(),

@@ -389,6 +389,32 @@
       }
     }
     for (let i = 0; i < extra.length; i++) eyes[extra[i]] = 1;
+    // Keep only compact blobs so bright wool (e.g. Biscuit) is not treated as eyes.
+    const maxEye = 320;
+    const seen = new Uint8Array(w * h);
+    for (let start = 0; start < w * h; start++) {
+      if (!eyes[start] || seen[start]) continue;
+      const blob = [];
+      const q = [start];
+      seen[start] = 1;
+      while (q.length) {
+        const p = q.pop();
+        blob.push(p);
+        const px = p % w, py = (p / w) | 0;
+        for (let d = 0; d < 4; d++) {
+          const np = p + dirs4[d];
+          const nx = np % w, ny = (np / w) | 0;
+          if (np < 0 || np >= w * h) continue;
+          if (Math.abs(nx - px) + Math.abs(ny - py) !== 1) continue;
+          if (!eyes[np] || seen[np]) continue;
+          seen[np] = 1;
+          q.push(np);
+        }
+      }
+      if (blob.length > maxEye) {
+        for (let i = 0; i < blob.length; i++) eyes[blob[i]] = 0;
+      }
+    }
     return eyes;
   }
 
@@ -418,19 +444,18 @@
       // Pink cheeks stay pink — never recolored by the face or wool picker.
       if (isBlushHsl(hh, ss, ll, r, g, b)) continue;
       if (eyeMask && eyeMask[p]) {
+        // Leave the white sparkle highlight undyed.
+        // Do not use HSL sat here: near-white pixels inflate sat in rgbToHsl.
+        if (L > 245) continue;
         if (eyeDye) {
           const n = applyDye(r, g, b, eyeDye);
           data[i] = n[0]; data[i + 1] = n[1]; data[i + 2] = n[2];
         } else if (eyeRgb) {
           const er = eyeRgb[0], eg = eyeRgb[1], eb = eyeRgb[2];
-          if (L > 245) {
-            data[i] = Math.min(255, er + 45); data[i + 1] = Math.min(255, eg + 40); data[i + 2] = Math.min(255, eb + 40);
-          } else {
-            const tt = Math.max(0, Math.min(1, (L - 180) / 70));
-            data[i] = lerp((er * 0.72) | 0, er, tt);
-            data[i + 1] = lerp((eg * 0.72) | 0, eg, tt);
-            data[i + 2] = lerp((eb * 0.72) | 0, eb, tt);
-          }
+          const tt = Math.max(0, Math.min(1, (L - 180) / 70));
+          data[i] = lerp((er * 0.72) | 0, er, tt);
+          data[i + 1] = lerp((eg * 0.72) | 0, eg, tt);
+          data[i + 2] = lerp((eb * 0.72) | 0, eb, tt);
         }
         continue;
       }
@@ -761,6 +786,8 @@
       if (ll < 0.12) continue; // outline / pupils
       if (isBlushHsl(hh, ss, ll, r, g, b)) continue;
       if (isCreamHsl(hh, ss, ll)) {
+        // Sparkle highlights stay white, even when they sit next to a pupil.
+        if ((eyeDye || eyeRgb) && ll > 0.96 && ss < 0.22) continue;
         if ((eyeDye || eyeRgb) && ll > 0.9 && ss < 0.2) {
           const x = p % w, y = (p / w) | 0;
           let nearDark = false;
