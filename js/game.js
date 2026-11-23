@@ -365,6 +365,45 @@ function assetUrl(path) {
       ],
       start: { x: 512, y: 520 },
     },
+    orange_pond: {
+      spots: {
+        trough: { x: 420, y: 700, r: 80, stand: { x: 420, y: 790 }, action: "eat", label: "eat" },
+        basin:  { x: 520, y: 700, r: 80, stand: { x: 520, y: 790 }, action: "drink", label: "drink" },
+        bed:    { x: 760, y: 300, r: 86, stand: { x: 760, y: 390 }, sleep: { x: 760, y: 300 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 760, y: 300, key: "home_bed" },
+        { id: "care-water", x: 520, y: 700, key: "home_water" },
+        { id: "care-food", x: 420, y: 700, key: "home_food" },
+        { id: "home-play", x: 260, y: 260, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
+    },
+    carrot_yard: {
+      spots: {
+        trough: { x: 300, y: 310, r: 80, stand: { x: 300, y: 400 }, action: "eat", label: "eat" },
+        basin:  { x: 740, y: 320, r: 80, stand: { x: 740, y: 410 }, action: "drink", label: "drink" },
+        bed:    { x: 740, y: 720, r: 86, stand: { x: 740, y: 810 }, sleep: { x: 740, y: 720 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 740, y: 720, key: "home_bed" },
+        { id: "care-water", x: 740, y: 320, key: "home_water" },
+        { id: "care-food", x: 300, y: 310, key: "home_food" },
+        { id: "home-play", x: 280, y: 520, key: "home_play" },
+        { id: "home-extra1", x: 270, y: 740, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
+    },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -2362,6 +2401,8 @@ function assetUrl(path) {
         root_cave: "Tap the root cave, the pond, the bug patch, or the log",
         puppy_yard: "Tap the doghouse, the pool, the bowls, or the ball",
         cat_garden: "Tap the basket, the bowls, the tunnel, or the scratch post",
+        orange_pond: "Tap the woven bed, the pond, the oranges, or the cattails",
+        carrot_yard: "Tap the hay nest, the carrot trough, the tub, or the slide",
       };
       const hintMsg = HINTS[hintFid] || "Tap the food, water, bed, or a flower";
       const scale = this.fScale || 1;

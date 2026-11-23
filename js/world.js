@@ -5,6 +5,8 @@
 
   // Meadow plus per-species homes. Each pet lives only in their own field.
   // Autumn Den art stays in the repo; foxes now live in Fox Hollow.
+  // Capy Spa art stays in the repo; capybaras now live in Orange Pond.
+  // The meadow stays for pets that don't have a field yet.
   // Use the composite field_*.png files so this matches live GitHub Pages
   // (bare files are not uploaded).
   const FIELDS = [
@@ -20,6 +22,8 @@
     { id: "root_cave", name: "Root Cave", emoji: "🥝", file: "field_root_cave.png", thumb: "field_root_cave_thumb.png" },
     { id: "puppy_yard", name: "Puppy Yard", emoji: "🐶", file: "field_puppy_yard.png", thumb: "field_puppy_yard_thumb.png" },
     { id: "cat_garden", name: "Cat Garden", emoji: "🐱", file: "field_cat_garden.png", thumb: "field_cat_garden_thumb.png" },
+    { id: "orange_pond", name: "Orange Pond", emoji: "🍊", file: "field_orange_pond.png", thumb: "field_orange_pond_thumb.png" },
+    { id: "carrot_yard", name: "Carrot Yard", emoji: "🥕", file: "field_carrot_yard.png", thumb: "field_carrot_yard_thumb.png" },
   ];
   const FIELD_IDS = FIELDS.map((f) => f.id);
 
@@ -195,7 +199,8 @@
     }
     // Each species stays in its own home (sp.field / defaultField).
     // clampFieldId moves saved pets off a field they can no longer use
-    // (for example foxes that were in Autumn Den or the meadow).
+    // (for example foxes that were in Autumn Den, or capybaras that were
+    // in Capy Spa, or sheep that were in the meadow).
     if (all.indexOf(want) >= 0) return [want];
     return all.indexOf("meadow") >= 0 ? ["meadow"] : all;
   }

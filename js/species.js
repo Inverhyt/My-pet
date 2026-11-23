@@ -425,8 +425,7 @@
   };
 
   // Per-species designed field: set `field` to a MyPetWorld.FIELDS id when that
-  // art is ready. Capybara uses capy_spa only; the fox may use meadow or
-  // their own home field; pets without one stay in the meadow.
+  // art is ready. Pets without a home field stay in the meadow.
   const SPECIES = {
     sheep_valais: {
       id: "sheep_valais",
@@ -443,8 +442,8 @@
       ],
       defaults: { wool: "white", face: "black", eyes: "white" },
       defaultItems: { water: "basin", food: "hay_trough", bed: "hay_bed" },
-      defaultField: "meadow",
-      field: "meadow",
+      defaultField: "carrot_yard",
+      field: "carrot_yard",
       homeDecor: null,
       HEAD: SHEEP_HEAD,
       NECK: SHEEP_NECK,
@@ -487,8 +486,8 @@
       ],
       defaults: { wool: "sand", face: "cocoa", eyes: "white" },
       defaultItems: { water: "hottub", food: "veggie_bowl", bed: "straw_mat" },
-      defaultField: "capy_spa",
-      field: "capy_spa",
+      defaultField: "orange_pond",
+      field: "orange_pond",
       homeDecor: null,
       HEAD: CAPY_HEAD,
       NECK: CAPY_NECK,
