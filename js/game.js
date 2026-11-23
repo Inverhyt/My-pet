@@ -347,21 +347,22 @@ function assetUrl(path) {
     },
     cat_garden: {
       spots: {
-        trough: { x: 700, y: 780, r: 80, stand: { x: 700, y: 870 }, action: "eat", label: "eat" },
-        basin:  { x: 760, y: 780, r: 80, stand: { x: 760, y: 870 }, action: "drink", label: "drink" },
-        bed:    { x: 720, y: 280, r: 86, stand: { x: 720, y: 370 }, sleep: { x: 720, y: 280 }, action: "nap", label: "nap" },
+        trough: { x: 716, y: 723, r: 60, stand: { x: 738, y: 724 }, via: { x: 745, y: 640 }, face: "left", action: "eat", label: "eat" },
+        basin:  { x: 795, y: 723, r: 60, stand: { x: 818, y: 726 }, via: { x: 825, y: 640 }, face: "left", action: "drink", label: "drink" },
+        bed:    { x: 760, y: 300, r: 86, stand: { x: 760, y: 412 }, sleep: { x: 760, y: 300 }, nap: { x: 780, y: 352, flip: false }, action: "nap", label: "nap" },
       },
-      park: false,
-      pool: null,
-      beach: null,
-      oranges: null,
+      park: false, pool: null, beach: null, oranges: null,
       walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
       blockers: [
-        { id: "care-bed", x: 720, y: 280, key: "home_bed" },
-        { id: "care-water", x: 760, y: 780, key: "home_water" },
-        { id: "care-food", x: 700, y: 780, key: "home_food" },
-        { id: "home-play", x: 260, y: 740, key: "home_play" },
-        { id: "home-extra1", x: 260, y: 260, key: "home_play" },
+        { id: "cat-post", x: 285, y: 320, rx: 40, ry: 25 },
+        { id: "care-bed", x: 765, y: 330, rx: 85, ry: 40 },
+        { id: "cat-tunnel", x: 300, y: 710, rx: 110, ry: 45 },
+        { id: "care-food", x: 755, y: 730, rx: 85, ry: 25 },
+      ],
+      fronts: [{ key: "front_cat_bed", x: 668, y: 190, base: 366 }, { key: "front_cat_bowls", x: 684, y: 699, base: 746 }],
+      plays: [
+        { id: "yarn", kind: "yarn", x: 258, y: 760, r: 50, stand: { x: 320, y: 790 }, msg: "Got the yarn! 🧶" },
+        { id: "post", kind: "post", x: 287, y: 255, r: 75, stand: { x: 338, y: 340 }, top: { x: 287, y: 186 }, msg: "Scritch scratch 🐾" },
       ],
       start: { x: 512, y: 520 },
     },
@@ -933,6 +934,7 @@ function assetUrl(path) {
     // Feet origin (0.5, 1): put the body, not the feet, on the sleep spot.
     return scene.toWorld(sleep.x, sleep.y + Math.round(h * 0.42));
   }
+  const FRONT_KEYS = ["front_cat_bed", "front_cat_bowls"];
   function fieldSpots() {
     const L = fieldLayout();
     return (L && L.spots) || SPOTS;
@@ -1386,6 +1388,7 @@ function assetUrl(path) {
       img("meadow_fox_gate", "field_meadow_fox_gate.png");
       img("prop_seesaw", "prop_seesaw.png");
       img("prop_seesaw_pad", "prop_seesaw_pad.png");
+      FRONT_KEYS.forEach((k) => img(k, k + ".png"));
       posePrefixes().forEach((pre) => {
         SHEEP_KEYS.forEach((k) => img(pre + "_" + k, pre + "_" + k + ".png"));
       });
@@ -1804,7 +1807,14 @@ function assetUrl(path) {
         // then step straight onto the stand spot even if it sits in a prop's
         // keep-out ring. Stops pets getting lost around their own bowls.
         const ex = { x: this.clamp(fx), y: this.clampY(fy) };
-        if (this.hitsBlocker(ex.x, ex.y)) {
+        if (opts.via && this.hitsBlocker(ex.x, ex.y)) {
+          // v34: come at the spot from a set side (e.g. from above the bowls).
+          const near = this.pushOut(opts.via.x, opts.via.y);
+          this._waypoints = this.buildPath(near.x, near.y);
+          this._waypoints.push(ex);
+          this._ghostLast = true;
+          this._exactEnd = { near: near, ex: ex };
+        } else if (this.hitsBlocker(ex.x, ex.y)) {
           const near = this.nearestWalkable(ex.x, ex.y);
           this._waypoints = this.buildPath(near.x, near.y);
           this._waypoints.push(ex);
@@ -1836,14 +1846,14 @@ function assetUrl(path) {
 
     rebuildBlockers() {
       this.blockers = [];
-      const add = (id, fx, fy, key) => {
-        const fp = this.footprintOf(key);
+      const add = (id, fx, fy, key, rx, ry) => {
+        const fp = rx != null ? { rx: rx, ry: ry } : this.footprintOf(key);
         this.blockers.push({ id: id, fx: fx, fy: fy, rx: fp.rx, ry: fp.ry, key: key });
       };
       const L = fieldLayout();
       const spots = fieldSpots();
       if (L && L.blockers) {
-        L.blockers.forEach((b) => add(b.id, b.x, b.y, b.key));
+        L.blockers.forEach((b) => add(b.id, b.x, b.y, b.key, b.rx, b.ry));
       } else if (L && !L.pool) {
         // Standard meadow care props (baked into field_meadow.png).
         if (spots.basin) add("care-water", spots.basin.x, spots.basin.y, "item_basin");
@@ -2175,6 +2185,7 @@ function assetUrl(path) {
       if (this.mode === "sleep") this.wakeGently();
     }
     wakeGently() {
+      this.leaveNapSpot();
       this.stopZzz();
       this._nightSleep = false;
       this.mode = "idle";
@@ -2192,7 +2203,7 @@ function assetUrl(path) {
       this.walkTo(s.stand.x, s.stand.y, () => {
         this._bedWalk = false;
         if (busy || !MyPetWorld.isNight()) { this.goIdle(); return; }
-        const dest = napFootWorld(this, s);
+        const dest = this.napDest(s);
         this.tweens.add({
           targets: this.sheep, x: dest.x, y: dest.y, duration: 400,
           onUpdate: () => this.layoutWear(),
@@ -2201,7 +2212,7 @@ function assetUrl(path) {
             this.mode = "sleep";
             this._nightSleep = true;
             this.sheep.angle = 0;
-            this.showAnim("sleep");
+            this.showNapPose(s);
             this.layoutWear();
             this.startZzz();
             updateMood();
@@ -2278,6 +2289,7 @@ function assetUrl(path) {
         });
       }
       this.placeOranges();
+      this.placeFronts();
       this.rebuildBlockers();
       this._wasInPool = this.inPoolFeet && this.inPoolFeet();
       if (!this._wasInPool) this.dropOranges(true);
@@ -2425,7 +2437,7 @@ function assetUrl(path) {
         fox_hollow: "Tap the hollow log, the stream, the bowl, or the burrow",
         root_cave: "Tap the root cave, the pond, the bug patch, or the log",
         puppy_yard: "Tap the doghouse, the pool, the bowls, or the ball",
-        cat_garden: "Tap the basket, the bowls, the tunnel, or the scratch post",
+        cat_garden: "Tap the basket, the bowls, the yarn, or the scratch post",
         orange_pond: "Tap the woven bed, the pond, the oranges, or the cattails",
         carrot_yard: "Tap the hay nest, the carrot trough, the tub, or the slide",
       };
@@ -2922,6 +2934,7 @@ function assetUrl(path) {
       this.ripples.push({ x, y, r: 3, a: 0.55 });
     }
     goIdle() {
+      this.leaveNapSpot();
       this.mode = "idle";
       this.resetWalkPose();
       this.showAnim((this.hasSwim && this.hasSwim() && this.inPoolFeet()) ? "swim" : "idle");
@@ -2986,6 +2999,13 @@ function assetUrl(path) {
         const d = Math.hypot(f.x - s.x, f.y - s.y);
         if (d <= s.r) { this.useSpot(id, s); return; }
       }
+      const Lp = fieldLayout();
+      if (Lp && Lp.plays) {
+        for (let i = 0; i < Lp.plays.length; i++) {
+          const pl = Lp.plays[i];
+          if (Math.hypot(f.x - pl.x, f.y - pl.y) <= pl.r) { this.usePlay(pl); return; }
+        }
+      }
       if (this.tryPathGate && this.tryPathGate(f)) return;
       const Ltap = fieldLayout();
       if (Ltap && Ltap.leafPiles) {
@@ -3026,11 +3046,14 @@ function assetUrl(path) {
       if (busy) return;
       busy = true;
       this.walkTo(s.stand.x, s.stand.y, () => {
-        if (id === "trough" || id === "basin") this.faceSpot(s);
+        if (id === "trough" || id === "basin") {
+          if (s.face) this._faceRight = s.face === "right";
+          else this.faceSpot(s);
+        }
         if (id === "trough") this.doEat();
         else if (id === "basin") this.doDrink();
         else if (id === "bed") this.doNap(s);
-      }, { exact: true });
+      }, { exact: true, via: s.via });
     }
 
     // v33: turn toward the bowl before eating/drinking (not the last walk direction).
@@ -3074,14 +3097,14 @@ function assetUrl(path) {
     }
 
     doNap(s) {
-      const dest = napFootWorld(this, s);
+      const dest = this.napDest(s);
       this.tweens.add({
         targets: this.sheep, x: dest.x, y: dest.y, duration: 400,
         onUpdate: () => this.layoutWear(),
         onComplete: () => {
           this.mode = "sleep";
           this.sheep.angle = 0;
-          this.showAnim("sleep");
+          this.showNapPose(s);
           this.blanket.setVisible(false);
           this.layoutWear();
           this.floatSprite("zzz", this.sheep.x + 28, this.sheep.y - 90, 1600);
@@ -3204,6 +3227,11 @@ function assetUrl(path) {
         this.playSeesaw();
         return;
       }
+      if (L && L.plays && L.plays.length) {
+        this._playI = ((this._playI || 0) + 1) % L.plays.length;
+        this.usePlay(L.plays[this._playI]);
+        return;
+      }
       if (L && L.leafPiles && L.leafPiles.length) {
         this._playI = ((this._playI || 0) + 1) % L.leafPiles.length;
         this.playLeafPounce(L.leafPiles[this._playI]);
@@ -3304,6 +3332,332 @@ function assetUrl(path) {
       const out = this.pushOut(f.x, f.y);
       const w = this.toWorld(out.x, out.y);
       this.place(w.x, w.y);
+    }
+
+    // ---- v34: home-field plays — existing poses + simple code motion only ----
+    footF() {
+      return this.toField(this.footX != null ? this.footX : this.sheep.x, this.footY != null ? this.footY : this.sheep.y);
+    }
+    faceToward(fx) {
+      const at = this.footF();
+      if (Math.abs(fx - at.x) >= 4) this._faceRight = fx > at.x;
+      this.applyFacing();
+    }
+    pWait(ms) { return new Promise((r) => this.time.delayedCall(ms, r)); }
+    pTween(cfg) {
+      return new Promise((r) => {
+        this.tweens.add(Object.assign({ onUpdate: () => this.layoutWear() }, cfg, { onComplete: () => r() }));
+      });
+    }
+    async hopTo(fx, fy, o) {
+      o = o || {};
+      const a = { x: this.sheep.x, y: this.sheep.y };
+      const b = this.toWorld(fx, fy);
+      if (o.face !== false && Math.abs(b.x - a.x) > 2) this._faceRight = b.x > a.x;
+      if (o.pose) this.showAnim(o.pose); else this.applyFacing();
+      if (o.crop != null) this.cropBottom(o.crop);
+      const h = (o.h != null ? o.h : 26) * this.fScale;
+      const c = { t: 0 };
+      await this.pTween({
+        targets: c, t: 1, duration: o.dur || 380, ease: o.ease || "Linear",
+        onUpdate: () => {
+          const t = c.t;
+          this.sheep.x = a.x + (b.x - a.x) * t;
+          this.sheep.y = a.y + (b.y - a.y) * t - Math.sin(Math.PI * t) * h;
+          this.layoutWear();
+        },
+      });
+      this.sheep.x = b.x; this.sheep.y = b.y;
+      this.layoutWear();
+    }
+    async glideTo(fx, fy, dur, ease) {
+      const b = this.toWorld(fx, fy);
+      await this.pTween({ targets: this.sheep, x: b.x, y: b.y, duration: dur || 900, ease: ease || "Sine.easeInOut" });
+    }
+    bob(n, amp, dur) {
+      return this.pTween({ targets: this.sheep, y: this.sheep.y + amp * this.fScale, yoyo: true, repeat: Math.max(0, n - 1), duration: dur || 170 });
+    }
+    wiggle(n, amp, dur) {
+      const x0 = this.sheep.x;
+      return this.pTween({ targets: this.sheep, x: x0 + amp * this.fScale, yoyo: true, repeat: Math.max(0, n - 1), duration: dur || 70 })
+        .then(() => { this.sheep.x = x0; this.layoutWear(); });
+    }
+    cropBottom(px) {
+      if (!this.sheep) return;
+      if (!px) { if (this.sheep.isCropped) this.sheep.setCrop(); return; }
+      const fr = this.sheep.frame;
+      this.sheep.setCrop(0, 0, fr.width, Math.max(1, fr.height - px));
+    }
+    fxPuff(key, fx, fy, dx, dy, dur, scale) {
+      const w = this.toWorld(fx, fy);
+      const s = this.add.image(w.x, w.y, key).setScale(this.fScale * (scale || 1)).setDepth(9000);
+      this.tweens.add({ targets: s, x: w.x + (dx || 0) * this.fScale, y: w.y + (dy || -30) * this.fScale, alpha: 0, duration: dur || 900, onComplete: () => s.destroy() });
+    }
+    fxDots(fx, fy, n, color, spread) {
+      const w = this.toWorld(fx, fy);
+      for (let i = 0; i < n; i++) {
+        const d = this.add.circle(w.x, w.y, (2 + Math.random() * 2) * this.fScale, color, 0.85).setDepth(9000);
+        const a = -Math.PI * Math.random();
+        const r = (spread || 24) * (0.5 + Math.random() * 0.6) * this.fScale;
+        this.tweens.add({ targets: d, x: w.x + Math.cos(a) * r, y: w.y + Math.sin(a) * r + 10 * this.fScale, alpha: 0, duration: 500 + Math.random() * 300, onComplete: () => d.destroy() });
+      }
+    }
+    fxRipple(fx, fy) {
+      const w = this.toWorld(fx, fy);
+      const e = this.add.ellipse(w.x, w.y, 34 * this.fScale, 11 * this.fScale);
+      e.setStrokeStyle(Math.max(1, 2 * this.fScale), 0xffffff, 0.75);
+      e.setDepth(w.y + 0.5);
+      this.tweens.add({ targets: e, scaleX: 2.2, scaleY: 2.2, alpha: 0, duration: 1000, onComplete: () => e.destroy() });
+    }
+    fxDrops(fx, fy, n) {
+      const w = this.toWorld(fx, fy);
+      for (let i = 0; i < n; i++) {
+        const d = this.add.image(w.x, w.y, "wx_drop").setScale(this.fScale * 0.9).setDepth(9000);
+        const a = -Math.PI * (0.1 + 0.8 * Math.random());
+        const r = (30 + Math.random() * 30) * this.fScale;
+        this.tweens.add({ targets: d, x: w.x + Math.cos(a) * r, y: w.y + Math.sin(a) * r, alpha: 0, duration: 550 + Math.random() * 250, onComplete: () => d.destroy() });
+      }
+    }
+
+    // naps at hand-placed spots (doghouse, cave hole, nest, bed cushion)
+    napDest(s) {
+      if (s && s.nap) return this.toWorld(s.nap.x, s.nap.y);
+      return napFootWorld(this, s);
+    }
+    showNapPose(s) {
+      if (s && s.nap) {
+        if (s.nap.flip != null) this._faceRight = !!s.nap.flip;
+        this.showAnim(s.nap.pose || "sleep");
+        this.cropBottom(s.nap.crop || 0);
+        this._napSpot = s;
+      } else {
+        this.showAnim("sleep");
+      }
+    }
+    leaveNapSpot() {
+      const s = this._napSpot;
+      if (!s) return;
+      this._napSpot = null;
+      this.cropBottom(0);
+      if (s.stand && this.sheep && !this.target) {
+        const w = this.toWorld(s.stand.x, s.stand.y);
+        this.sheep.x = w.x; this.sheep.y = w.y;
+        this.footX = w.x; this.footY = w.y;
+      }
+    }
+
+    // front layers: parts of the field map that sit in front of the pet
+    placeFronts() {
+      (this.fronts || []).forEach((f) => { f.img.destroy(); f.sh.destroy(); });
+      this.fronts = [];
+      const L = fieldLayout();
+      if (!L || !L.fronts) return;
+      L.fronts.forEach((f) => {
+        if (!this.textures.exists(f.key)) return;
+        const w = this.toWorld(f.x, f.y);
+        const d = this.toWorld(0, f.base).y;
+        const img = this.add.image(w.x, w.y, f.key).setOrigin(0, 0).setScale(this.fScale).setDepth(d);
+        const sh = this.add.image(w.x, w.y, f.key).setOrigin(0, 0).setScale(this.fScale).setDepth(d + 0.01).setAlpha(0);
+        this.fronts.push({ img: img, sh: sh, key: f.key });
+      });
+    }
+
+    usePlay(p) {
+      if (busy || !p || !this.sheep) return;
+      const fn = this["play_" + p.kind];
+      if (!fn) return;
+      busy = true;
+      this.interruptNight();
+      const field = currentFieldId();
+      this.walkTo(p.stand.x, p.stand.y, () => {
+        this.mode = "play";
+        this._playing = p.id;
+        let ok = true;
+        Promise.resolve()
+          .then(() => fn.call(this, p))
+          .catch((e) => { ok = false; if (window.console) console.warn("play", e); })
+          .then(() => this.endPlay(p, ok, field));
+      }, { exact: true, via: p.via });
+    }
+    endPlay(p, ok, field) {
+      this._playing = null;
+      this.cropBottom(0);
+      this.sheep.angle = 0;
+      this._hopping = false;
+      if (field !== currentFieldId()) {
+        const st = (fieldLayout() && fieldLayout().start) || { x: 512, y: 520 };
+        const w = this.toWorld(st.x, st.y);
+        this.place(w.x, w.y);
+        this.goIdle();
+        busy = false;
+        return;
+      }
+      if (ok) {
+        doCare("play").catch(() => {});
+        toast(p.msg || "Fun! ✨");
+        blip("click");
+      }
+      this.showAnim("happy");
+      this.pTween({ targets: this.sheep, y: this.sheep.y - 10 * this.fScale, yoyo: true, duration: 140, repeat: 1 })
+        .then(() => { this.goIdle(); busy = false; });
+    }
+
+    async play_yarn(p) {
+      const st = p.stand;
+      this.faceToward(p.x);
+      this.showAnim("eat");
+      await this.pWait(350);
+      for (let i = 0; i < 2; i++) {
+        await this.hopTo(st.x - 24, st.y - 3, { pose: "happy", h: 22, dur: 300 });
+        this.fxDots(p.x + 10, p.y + 8, 4, 0xe86a8a, 18);
+        await this.hopTo(st.x, st.y, { pose: "happy", h: 12, dur: 260, face: false });
+      }
+      this.showAnim("idle");
+      this.showBubble("bat bat! 🧶");
+      await this.wiggle(6, 3, 80);
+      this.fxPuff("heart", st.x, st.y - 70, 0, -30, 1000);
+    }
+    async play_post(p) {
+      const st = p.stand;
+      this.faceToward(p.x);
+      this.showAnim("idle");
+      this.showBubble("scritch scratch");
+      for (let i = 0; i < 4; i++) {
+        this.fxDots(st.x - 40, st.y - 30, 3, 0xc8a070, 16);
+        await this.wiggle(2, 3, 70);
+      }
+      await this.pWait(200);
+      await this.hopTo(p.top.x, p.top.y, { pose: "happy", h: 46, dur: 600 });
+      this.showAnim("idle");
+      this.showBubble("up high!");
+      await this.pWait(2000);
+      await this.hopTo(st.x, st.y, { pose: "happy", h: 28, dur: 520 });
+    }
+    async play_toy(p) {
+      const st = p.stand;
+      this.faceToward(p.ball.x);
+      this.showAnim("happy");
+      this.showBubble("woof!");
+      for (let i = 0; i < 2; i++) {
+        await this.hopTo(st.x - 20, st.y - 4, { pose: "happy", h: 20, dur: 280 });
+        await this.hopTo(st.x, st.y, { pose: "happy", h: 12, dur: 240, face: false });
+      }
+      this.fxPuff("note", st.x - 10, st.y - 80, -10, -30, 1000);
+      this.faceToward(p.bone.x);
+      this.showAnim("eat");
+      this.showBubble("chomp chomp 🦴");
+      await this.bob(5, 3, 170);
+    }
+    async play_pool(p) {
+      this.faceToward(p.in.x);
+      await this.hopTo(p.in.x, p.in.y, { pose: "happy", h: 40, dur: 460 });
+      this.fxDrops(p.in.x, p.in.y - 20, 8);
+      this.fxRipple(p.in.x, p.in.y - 6);
+      this.showAnim("idle");
+      this.showBubble("splash!");
+      for (const pt of p.pts) {
+        this.faceToward(pt.x);
+        this.fxRipple(this.footF().x, pt.y - 6);
+        await this.glideTo(pt.x, pt.y, 1100);
+        this.fxRipple(pt.x, pt.y - 6);
+        await this.bob(2, 2, 220);
+      }
+      await this.hopTo(p.stand.x, p.stand.y, { pose: "happy", h: 40, dur: 460 });
+      if (p.shake) {
+        this.showAnim("idle");
+        this.showBubble("shake shake!");
+        const at = this.footF();
+        this.fxDrops(at.x, at.y - 40, 12);
+        await this.wiggle(8, 4, 55);
+        this.fxDrops(at.x, at.y - 40, 8);
+      }
+    }
+    async play_swim(p) {
+      this.faceToward(p.in.x);
+      await this.hopTo(p.in.x, p.in.y, { pose: "happy", h: 30, dur: 420 });
+      this.showAnim("idle");
+      this.cropBottom(p.crop);
+      this.fxRipple(p.in.x, p.in.y - p.crop);
+      this.showBubble("quack ♪");
+      for (const pt of p.pts) {
+        this.faceToward(pt.x);
+        await this.glideTo(pt.x, pt.y, 1300);
+        this.fxRipple(pt.x, pt.y - p.crop);
+        await this.bob(2, 2, 240);
+      }
+      this.cropBottom(0);
+      await this.hopTo(p.stand.x, p.stand.y, { pose: "happy", h: 30, dur: 440 });
+      this.fxDrops(p.stand.x, p.stand.y - 30, 5);
+    }
+    async play_sit(p) {
+      this.faceToward(p.in.x);
+      await this.hopTo(p.in.x, p.in.y, { pose: "happy", h: 24, dur: 420 });
+      this.showAnim("idle");
+      this.cropBottom(p.crop);
+      this.fxRipple(p.in.x, p.in.y - p.crop);
+      this.showBubble("aah~");
+      await this.bob(3, 2, 450);
+      this.fxRipple(p.in.x, p.in.y - p.crop);
+      await this.pWait(1400);
+      this.cropBottom(0);
+      await this.hopTo(p.stand.x, p.stand.y, { pose: "happy", h: 24, dur: 420 });
+    }
+    async play_slide(p) {
+      for (const s of p.steps) await this.hopTo(s.x, s.y, { pose: "idle", h: 12, dur: 360 });
+      this._faceRight = true;
+      this.showAnim("happy");
+      this.showBubble("weee!");
+      this.sheep.angle = 22;
+      await this.glideTo(p.end.x, p.end.y, 650, "Quad.easeIn");
+      this.sheep.angle = 0;
+      this.fxDots(p.end.x, p.end.y, 6, 0xd9c08a, 22);
+      await this.hopTo(p.off.x, p.off.y, { pose: "happy", h: 14, dur: 300 });
+    }
+    async play_climb(p) {
+      for (const s of p.steps) await this.hopTo(s.x, s.y, { pose: "idle", h: 26, dur: 460 });
+      this._faceRight = false;
+      this.showAnim("idle");
+      this.showBubble(p.say || "up here!");
+      this.fxPuff("note", p.steps[p.steps.length - 1].x, p.steps[p.steps.length - 1].y - 70, 10, -30, 1100);
+      await this.pWait(2200);
+      const back = p.steps.slice(0, -1).reverse().concat([p.stand]);
+      for (const s of back) await this.hopTo(s.x, s.y, { pose: "happy", h: 22, dur: 420 });
+    }
+    async play_perch(p) {
+      await this.hopTo(p.top.x, p.top.y, { pose: "happy", h: 70, dur: 900, ease: "Sine.easeInOut" });
+      this._faceRight = false;
+      this.showAnim("idle");
+      this.showBubble("caw!");
+      this.fxPuff("note", p.top.x, p.top.y - 60, -10, -30, 1100);
+      await this.pWait(2600);
+      await this.hopTo(p.stand.x, p.stand.y, { pose: "happy", h: 50, dur: 800, ease: "Sine.easeInOut" });
+    }
+    async play_sniff(p) {
+      this.faceToward(p.x);
+      this.showAnim("eat");
+      this.showBubble("sniff sniff…");
+      await this.bob(4, 3, 160);
+      if (Math.random() < 0.65) {
+        this.fxPuff("treat", p.stand.x - 40, p.stand.y - 10, 6, -26, 1200, 0.9);
+        this.showBubble("crumbs! 😋");
+        await this.bob(4, 2, 150);
+        this.fxPuff("heart", p.stand.x, p.stand.y - 60, 0, -30, 1000);
+      } else {
+        await this.pWait(300);
+        this.showBubble("nothing… this time");
+        await this.pWait(500);
+      }
+    }
+    async play_shiny(p) {
+      const c = p.coin;
+      this.faceToward(c.x);
+      this.showAnim("eat");
+      await this.bob(4, 4, 150);
+      this.fxPuff("sparkle", c.x, c.y - 10, -6, -30, 900);
+      this.fxPuff("sparkle", c.x + 14, c.y - 4, 8, -26, 1000);
+      this.showBubble("ooh, shiny ✨");
+      await this.pWait(500);
+      await this.hopTo(p.stand.x, p.stand.y, { pose: "happy", h: 18, dur: 300, face: false });
     }
 
     finishPlay(msg) {
@@ -3583,6 +3937,11 @@ function assetUrl(path) {
         this.catchButterfly(live[0]);
         return;
       }
+      const Lpl = fieldLayout();
+      if (Lpl && Lpl.plays && Lpl.plays.length && !(window.MyPetWorld && MyPetWorld.isNight()) && Math.random() < 0.3) {
+        this.usePlay(Lpl.plays[Math.floor(Math.random() * Lpl.plays.length)]);
+        return;
+      }
       const pick = Math.random();
       if (pick < 0.33) {
         // yawn
@@ -3618,6 +3977,15 @@ function assetUrl(path) {
     }
 
     update(_, dt) {
+      if (this.fronts && this.fronts.length && this.skyTint) {
+        const a = this.skyTint.visible ? this.skyTint.fillAlpha : 0;
+        const c = this.skyTint.fillColor;
+        for (let i = 0; i < this.fronts.length; i++) {
+          const sh = this.fronts[i].sh;
+          if (sh._c !== c) { sh.setTintFill(c); sh._c = c; }
+          if (sh.alpha !== a) sh.setAlpha(a);
+        }
+      }
       if (this.target) {
         if (this.footX == null) { this.footX = this.sheep.x; this.footY = this.sheep.y; }
         const speed = 0.12 * this.fScale * dt * (this._speedMul || 1);
@@ -5234,6 +5602,7 @@ function assetUrl(path) {
       collectOrange: (i) => { if (pasture && pasture.oranges && pasture.oranges[i]) pasture.collectOrange(pasture.oranges[i]); },
       dropOranges: (instant) => { if (pasture && pasture.dropOranges) pasture.dropOranges(instant); },
       fieldSpots: () => fieldSpots(),
+      fieldPlays: () => ((fieldLayout() && fieldLayout().plays) || []),
       fieldId: () => currentFieldId(),
       openRehome,
     };
