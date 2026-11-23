@@ -368,7 +368,10 @@
     for (let p = 0; p < w * h; p++) {
       if (reach[p] || blocked[p]) continue;
       const i = p * 4;
-      if (data[i + 3] >= 200 && lum(data[i], data[i + 1], data[i + 2]) > 120) eyes[p] = 1;
+      if (data[i + 3] >= 200 && lum(data[i], data[i + 1], data[i + 2]) > 120) {
+        const [hh, ss, ll] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
+        if (!isBlushHsl(hh, ss, ll, data[i], data[i + 1], data[i + 2])) eyes[p] = 1;
+      }
     }
     const extra = [];
     for (let p = 0; p < w * h; p++) {
@@ -411,6 +414,9 @@
       if (a === 0) continue;
       const r = data[i], g = data[i + 1], b = data[i + 2];
       const L = lum(r, g, b);
+      const [hh, ss, ll] = rgbToHsl(r, g, b);
+      // Pink cheeks stay pink — never recolored by the face or wool picker.
+      if (isBlushHsl(hh, ss, ll, r, g, b)) continue;
       if (eyeMask && eyeMask[p]) {
         if (eyeDye) {
           const n = applyDye(r, g, b, eyeDye);
