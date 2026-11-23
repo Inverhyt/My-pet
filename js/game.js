@@ -103,6 +103,9 @@ function assetUrl(path) {
     prop_reeds: { rx: 16, ry: 14 },
     capy_reeds: { rx: 42, ry: 30 },
     capy_bed: { rx: 62, ry: 36 },
+    autumn_bush: { rx: 50, ry: 34 },
+    autumn_den: { rx: 62, ry: 38 },
+    autumn_tree: { rx: 40, ry: 28 },
     hay_bale: { rx: 68, ry: 36 },
     slide: { rx: 78, ry: 48 },
     tunnel: { rx: 72, ry: 40 },
@@ -134,6 +137,43 @@ function assetUrl(path) {
         { x: 645, y: 688 }, { x: 356, y: 646 },
       ],
       start: { x: 508, y: 501 },
+    },
+    autumn_den: {
+      spots: {
+        trough: { x: 300, y: 325, r: 72, stand: { x: 300, y: 410 }, action: "eat", label: "eat" },
+        basin:  { x: 400, y: 590, r: 58, stand: { x: 400, y: 655 }, action: "drink", label: "drink" },
+        bed:    { x: 756, y: 330, r: 82, stand: { x: 756, y: 415 }, sleep: { x: 756, y: 338 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      fallingLeaves: true,
+      pathGate: { x: 512, y: 820, r: 70, stand: { x: 512, y: 770 }, to: "meadow", arrive: { x: 512, y: 270 } },
+      leafPiles: [
+        { x: 230, y: 740, r: 64, stand: { x: 230, y: 800 } },
+        { x: 700, y: 620, r: 64, stand: { x: 700, y: 685 } },
+      ],
+      stream: [
+        { cx: 200, cy: 535, rx: 36, ry: 20 },
+        { cx: 280, cy: 555, rx: 38, ry: 20 },
+        { cx: 360, cy: 575, rx: 40, ry: 22 },
+        { cx: 440, cy: 598, rx: 38, ry: 20 },
+        { cx: 520, cy: 622, rx: 36, ry: 20 },
+        { cx: 600, cy: 660, rx: 34, ry: 20 },
+        { cx: 670, cy: 710, rx: 32, ry: 20 },
+      ],
+      stones: [
+        { x: 335, y: 568, r: 18 },
+        { x: 455, y: 598, r: 18 },
+        { x: 570, y: 632, r: 18 },
+      ],
+      blockers: [
+        { id: "care-food", x: 300, y: 325, key: "autumn_bush" },
+        { id: "care-bed", x: 756, y: 330, key: "autumn_den" },
+        { id: "den-tree", x: 800, y: 250, key: "autumn_tree" },
+      ],
+      start: { x: 512, y: 700 },
     },
   };
 
@@ -587,7 +627,7 @@ function assetUrl(path) {
       return MyPetWorld.forced.field;
     }
     const sp = currentSpecies && currentSpecies();
-    const id = (state && state.pet && state.pet.fieldTheme) || (sp && (sp.field || sp.defaultField)) || "meadow";
+    const id = (state && state.pet && state.pet.fieldTheme) || (sp && (sp.defaultField || sp.field)) || "meadow";
     if (window.MyPetWorld && MyPetWorld.clampFieldId) return MyPetWorld.clampFieldId(id, state && state.pet);
     return allowed.indexOf(id) >= 0 ? id : (allowed[0] || "meadow");
   }
@@ -1044,6 +1084,8 @@ function assetUrl(path) {
       }
       img("wx_drop", "wx_drop.png");
       img("wx_flake", "wx_flake.png");
+      img("wx_leaf", "wx_leaf.png");
+      img("meadow_fox_gate", "field_meadow_fox_gate.png");
       posePrefixes().forEach((pre) => {
         SHEEP_KEYS.forEach((k) => img(pre + "_" + k, pre + "_" + k + ".png"));
       });
@@ -1151,15 +1193,6 @@ function assetUrl(path) {
       this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.layoutWear, this);
       this.applyWorld(true);
       this.time.addEvent({ delay: 1000, loop: true, callback: () => this.applyWorld(false) });
-
-      const hintMsg = currentFieldId() === "capy_spa"
-        ? "Tap the reeds, the bed, or a floating orange"
-        : "Tap the food, water, bed, or a flower";
-      this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, hintMsg, {
-        fontFamily: "Lexend, sans-serif", fontSize: "16px", fontStyle: "600", color: "#4a3426",
-        backgroundColor: "#fffaf3cc", padding: { x: 8, y: 4 },
-      }).setOrigin(0.5, 0).setDepth(20);
-      this.time.delayedCall(5000, () => this.hint && this.hint.destroy());
     }
 
     toWorld(fx, fy) {
@@ -1480,7 +1513,9 @@ function assetUrl(path) {
       };
       const L = fieldLayout();
       const spots = fieldSpots();
-      if (L && !L.pool) {
+      if (L && L.blockers) {
+        L.blockers.forEach((b) => add(b.id, b.x, b.y, b.key));
+      } else if (L && !L.pool) {
         // Standard meadow care props (baked into field_meadow.png).
         if (spots.basin) add("care-water", spots.basin.x, spots.basin.y, "item_basin");
         if (spots.trough) add("care-food", spots.trough.x, spots.trough.y, "item_hay_trough");
@@ -1504,6 +1539,10 @@ function assetUrl(path) {
         const nx = (fx - b.fx) / (b.rx + pad), ny = (fy - b.fy) / (b.ry + pad);
         if (nx * nx + ny * ny >= 1) continue;
         return b;
+      }
+      const stream = this.inAutumnStream && this.inAutumnStream(fx, fy);
+      if (stream && !(this.onSteppingStone && this.onSteppingStone(fx, fy))) {
+        return { id: "stream", fx: stream.cx, fy: stream.cy, rx: stream.rx, ry: stream.ry, key: "stream" };
       }
       if (this.onSpaRock && this.onSpaRock(fx, fy)) {
         const p = fieldLayout().pool;
@@ -1877,10 +1916,20 @@ function assetUrl(path) {
         .setScale(this.fScale);
       this.layoutWear();
     }
-    setFieldTheme(id) {
+    setFieldTheme(id, arrive) {
+      const changed = this._fieldId !== id;
+      this._fieldId = id;
       const key = "field_" + id;
       if (this.textures.exists(key) && this.field) this.field.setTexture(key);
       this.applyFieldLayout();
+      if (this.sheep && this.place && (arrive || changed)) {
+        const L = fieldLayout();
+        const pt = arrive || (L && L.start) || { x: 512, y: 560 };
+        const w = this.toWorld(pt.x, pt.y);
+        this.place(w.x, w.y);
+        this.sheep.angle = 0;
+        if (this.goIdle) this.goIdle();
+      }
     }
 
     applyFieldLayout() {
@@ -1897,6 +1946,181 @@ function assetUrl(path) {
       this._wasInPool = this.inPoolFeet && this.inPoolFeet();
       if (!this._wasInPool) this.dropOranges(true);
       this.syncLocomotion && this.syncLocomotion();
+      if (this.placeFoxGate) this.placeFoxGate();
+      if (this.startFallingLeaves) this.startFallingLeaves();
+      if (this._hintField !== currentFieldId()) {
+        this._hintField = currentFieldId();
+        if (this.showFieldHint) this.showFieldHint();
+      }
+    }
+
+    placeFoxGate() {
+      if (this.foxGate) { this.foxGate.destroy(); this.foxGate = null; }
+      const sp = currentSpecies();
+      const show = !!(sp && sp.id === "fox" && currentFieldId() === "meadow" && this.textures.exists("meadow_fox_gate"));
+      if (!show) return;
+      this.foxGate = this.add.image(this.fieldX, this.fieldY, "meadow_fox_gate")
+        .setOrigin(0, 0).setScale(this.fScale).setDepth(4);
+    }
+
+    inAutumnStream(fx, fy) {
+      const L = fieldLayout();
+      if (!L || !L.stream) return null;
+      for (let i = 0; i < L.stream.length; i++) {
+        const s = L.stream[i];
+        const nx = (fx - s.cx) / s.rx, ny = (fy - s.cy) / s.ry;
+        if (nx * nx + ny * ny <= 1) return s;
+      }
+      return null;
+    }
+    onSteppingStone(fx, fy) {
+      const L = fieldLayout();
+      if (!L || !L.stones) return false;
+      for (let i = 0; i < L.stones.length; i++) {
+        const s = L.stones[i];
+        if (Math.hypot(fx - s.x, fy - s.y) <= (s.r || 16)) return true;
+      }
+      return false;
+    }
+
+    showFieldHint() {
+      if (this._hintTimer) { this._hintTimer.remove(false); this._hintTimer = null; }
+      if (this.hint && this.hint.destroy) { this.hint.destroy(); this.hint = null; }
+      const hintFid = currentFieldId();
+      const hintMsg = hintFid === "capy_spa"
+        ? "Tap the reeds, the bed, or a floating orange"
+        : hintFid === "autumn_den"
+        ? "Tap the berry bush, the den, the stream, or a leaf pile"
+        : "Tap the food, water, bed, or a flower";
+      const scale = this.fScale || 1;
+      this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, hintMsg, {
+        fontFamily: "Lexend, sans-serif", fontSize: "16px", fontStyle: "600", color: "#4a3426",
+        backgroundColor: "#fffaf3cc", padding: { x: 8, y: 4 },
+      }).setOrigin(0.5, 0).setDepth(20);
+      this._hintTimer = this.time.delayedCall(5000, () => { if (this.hint) { this.hint.destroy(); this.hint = null; } this._hintTimer = null; });
+    }
+    startFallingLeaves() {
+      this.stopFallingLeaves();
+      const L = fieldLayout();
+      if (!L || !L.fallingLeaves) return;
+      this.leaves = [];
+      for (let i = 0; i < 16; i++) this.leaves.push(this.spawnLeaf(true));
+    }
+    stopFallingLeaves() {
+      (this.leaves || []).forEach((d) => { if (d && d.destroy) d.destroy(); });
+      this.leaves = [];
+    }
+    spawnLeaf(randomY) {
+      const s = this.fScale;
+      const key = this.textures.exists("wx_leaf") ? "wx_leaf" : (this.textures.exists("wx_flake") ? "wx_flake" : "sparkle");
+      const p = this.toWorld(140 + Math.random() * 740, randomY ? (160 + Math.random() * 700) : 120);
+      const tints = [0xc86428, 0xdcc64a, 0xb43c28, 0xe6a03c, 0x8c5028];
+      const d = this.add.image(p.x, p.y, key).setScale(s * (2.4 + Math.random() * 1.2)).setDepth(8011).setAlpha(0.95);
+      if (d.setTint) d.setTint(tints[Math.floor(Math.random() * tints.length)]);
+      d._vy = (0.025 + Math.random() * 0.03) * s;
+      d._vx = (Math.random() - 0.5) * 0.04 * s;
+      d._w = Math.random() * Math.PI * 2;
+      d._spin = (Math.random() - 0.5) * 0.04;
+      return d;
+    }
+    tickLeaves(dt) {
+      if (!this.leaves || !this.leaves.length) return;
+      const s = this.fScale;
+      const top = this.fieldY + 80 * s;
+      const bot = this.fieldY + 940 * s;
+      const left = this.fieldX + 80 * s;
+      const right = this.fieldX + 944 * s;
+      for (let i = 0; i < this.leaves.length; i++) {
+        const d = this.leaves[i];
+        if (!d || !d.active) { this.leaves[i] = this.spawnLeaf(false); continue; }
+        d._w += dt * 0.0015;
+        d.y += d._vy * dt;
+        d.x += d._vx * dt + Math.sin(d._w) * 0.05 * s * dt * 0.05;
+        d.angle = (d.angle || 0) + (d._spin || 0) * dt;
+        if (d.y > bot) { d.x = left + Math.random() * (right - left); d.y = top; }
+      }
+    }
+    puffLeaves(wx, wy) {
+      const s = this.fScale || 1;
+      const key = this.textures.exists("wx_leaf") ? "wx_leaf" : "sparkle";
+      const tints = [0xc86428, 0xdcc64a, 0xb43c28, 0xe6a03c];
+      for (let i = 0; i < 8; i++) {
+        const lf = this.add.image(wx, wy, key).setScale(s * 2.2).setDepth(9000);
+        if (lf.setTint) lf.setTint(tints[i % tints.length]);
+        this.tweens.add({
+          targets: lf,
+          x: wx + (Math.random() - 0.5) * 80 * s,
+          y: wy - (20 + Math.random() * 50) * s,
+          angle: (Math.random() - 0.5) * 180,
+          alpha: 0,
+          duration: 700 + Math.random() * 200,
+          onComplete: () => lf.destroy(),
+        });
+      }
+    }
+    currentPathGate() {
+      const L = fieldLayout();
+      if (L && L.pathGate) return L.pathGate;
+      const sp = currentSpecies();
+      if (sp && sp.id === "fox" && currentFieldId() === "meadow") {
+        return { x: 512, y: 200, r: 74, stand: { x: 512, y: 260 }, to: "autumn_den", arrive: { x: 512, y: 760 } };
+      }
+      return null;
+    }
+    tryPathGate(f) {
+      const gate = this.currentPathGate();
+      if (!gate) return false;
+      if (Math.hypot(f.x - gate.x, f.y - gate.y) > gate.r) return false;
+      this.usePathGate(gate);
+      return true;
+    }
+    usePathGate(gate) {
+      if (busy) return;
+      busy = true;
+      this.interruptNight();
+      this.walkTo(gate.stand.x, gate.stand.y, () => {
+        const dest = gate.to;
+        toast(dest === "autumn_den" ? "Autumn Den 🍂" : "Back to the meadow 🌿");
+        setFieldTheme(dest, false, gate.arrive);
+        busy = false;
+      });
+    }
+    playLeafPounce(pile) {
+      if (!pile) return;
+      this.interruptNight();
+      if (busy) return;
+      busy = true;
+      const stand = pile.stand || { x: pile.x, y: pile.y + 50 };
+      this.walkTo(stand.x, stand.y, () => {
+        this.mode = "hop";
+        this._hopping = true;
+        this.showAnim("happy");
+        const mid = this.toWorld(pile.x, pile.y - 40);
+        const land = this.toWorld(pile.x + 36, pile.y + 8);
+        this.setFacing(land.x - (this.footX != null ? this.footX : this.sheep.x));
+        this.tweens.add({
+          targets: this.sheep, x: mid.x, y: mid.y, duration: 280, ease: "Quad.easeOut",
+          onUpdate: () => this.layoutWear(),
+          onComplete: () => {
+            if (!this._hopping) return;
+            this.puffLeaves(mid.x, mid.y);
+            this.tweens.add({
+              targets: this.sheep,
+              x: land.x, y: land.y, angle: (this.sheep.angle || 0) + 360,
+              duration: 520, ease: "Quad.easeIn",
+              onUpdate: () => this.layoutWear(),
+              onComplete: () => {
+                if (!this._hopping) return;
+                this.sheep.angle = 0;
+                this.place(land.x, land.y);
+                this._hopping = false;
+                this.puffLeaves(land.x, land.y);
+                this.finishPlay("Pounce! 🍂");
+              },
+            });
+          },
+        });
+      });
     }
 
     placeOranges() {
@@ -2328,13 +2552,20 @@ function assetUrl(path) {
         const d = Math.hypot(f.x - s.x, f.y - s.y);
         if (d <= s.r) { this.useSpot(id, s); return; }
       }
+      if (this.tryPathGate && this.tryPathGate(f)) return;
       const Ltap = fieldLayout();
+      if (Ltap && Ltap.leafPiles) {
+        for (let i = 0; i < Ltap.leafPiles.length; i++) {
+          const pile = Ltap.leafPiles[i];
+          if (Math.hypot(f.x - pile.x, f.y - pile.y) <= pile.r) { this.playLeafPounce(pile); return; }
+        }
+      }
       if (Ltap && Ltap.park) {
         for (const [id, s] of Object.entries(PARK)) {
           if (Math.hypot(f.x - s.x, f.y - s.y) <= s.r) { this.playPark(s.kind); return; }
         }
       }
-      const flowers = (Ltap && Ltap.pool) ? FLOWERS.filter((fl) => fl.y < 520) : FLOWERS;
+      const flowers = (Ltap && (Ltap.pool || Ltap.fallingLeaves)) ? (Ltap.pool ? FLOWERS.filter((fl) => fl.y < 520) : []) : FLOWERS;
       for (const fl of flowers) {
         if (Math.hypot(f.x - fl.x, f.y - fl.y) < 36) { this.giftFlower(fl); return; }
       }
@@ -2369,7 +2600,7 @@ function assetUrl(path) {
         onUpdate: () => this.layoutWear(),
         onComplete: () => {
           doCare("eat").catch(() => {});
-          toast("Yum 🥕");
+          toast(currentFieldId() === "autumn_den" ? "Yum 🫐" : "Yum 🥕");
           this.goIdle();
           busy = false;
         },
@@ -2517,6 +2748,11 @@ function assetUrl(path) {
       const L = fieldLayout();
       if (L && L.pool) {
         this.playSpaSplash();
+        return;
+      }
+      if (L && L.leafPiles && L.leafPiles.length) {
+        this._playI = ((this._playI || 0) + 1) % L.leafPiles.length;
+        this.playLeafPounce(L.leafPiles[this._playI]);
         return;
       }
       const kinds = ["hop", "slide", "tunnel"];
@@ -3017,6 +3253,7 @@ function assetUrl(path) {
       this.syncLocomotion && this.syncLocomotion();
       this.tickOranges && this.tickOranges();
       this.tickWeather(dt);
+      if (this.tickLeaves) this.tickLeaves(dt);
     }
   }
 
@@ -3668,13 +3905,13 @@ function assetUrl(path) {
       grid.appendChild(btn);
     });
   }
-  function setFieldTheme(id, quiet) {
+  function setFieldTheme(id, quiet, arrive) {
     if (!state || !state.pet || !window.MyPetWorld) return;
     if (MyPetWorld.FIELD_IDS.indexOf(id) < 0) return;
     if (MyPetWorld.clampFieldId) id = MyPetWorld.clampFieldId(id, state.pet);
     state.pet.fieldTheme = id;
     persistStaticPet();
-    if (pasture && pasture.setFieldTheme) pasture.setFieldTheme(id);
+    if (pasture && pasture.setFieldTheme) pasture.setFieldTheme(id, arrive);
     renderFieldPicker();
     if (!quiet) blip("click");
   }

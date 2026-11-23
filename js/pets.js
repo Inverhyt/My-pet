@@ -129,7 +129,7 @@
     pet.eyes = pet.eyes || def.eyes;
     pet.costumeColors = pet.costumeColors || {};
     if (pet.dye && typeof pet.dye !== "object") pet.dye = {};
-    const wanted = pet.fieldTheme || (sp && (sp.field || sp.defaultField)) || "meadow";
+    const wanted = pet.fieldTheme || (sp && (sp.defaultField || sp.field)) || "meadow";
     if (window.MyPetWorld && MyPetWorld.clampFieldId) {
       pet.fieldTheme = MyPetWorld.clampFieldId(wanted, pet);
     } else {
@@ -286,7 +286,7 @@
       eyes: opts.eyes || def.eyes,
       costumeColors: {},
       dye: opts.dye ? JSON.parse(JSON.stringify(opts.dye)) : undefined,
-      fieldTheme: (function(){ const w = opts.fieldTheme || (sp && (sp.field || sp.defaultField)) || "meadow"; if (window.MyPetWorld && MyPetWorld.clampFieldId) return MyPetWorld.clampFieldId(w, opts.species || (sp && sp.id)); const a = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"]; return a.indexOf(w) >= 0 ? w : "meadow"; })(),
+      fieldTheme: (function(){ const w = opts.fieldTheme || (sp && (sp.defaultField || sp.field)) || "meadow"; if (window.MyPetWorld && MyPetWorld.clampFieldId) return MyPetWorld.clampFieldId(w, opts.species || (sp && sp.id)); const a = (window.MyPetWorld && MyPetWorld.FIELD_IDS) || ["meadow"]; return a.indexOf(w) >= 0 ? w : "meadow"; })(),
       items: opts.items || (window.MyPetSpecies && MyPetSpecies.defaultItems({ species: opts.species })),
       created_at: Date.now(),
       birthday: opts.birthday || today,
