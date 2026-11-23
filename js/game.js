@@ -110,6 +110,10 @@ function assetUrl(path) {
     pebble_pond: { rx: 108, ry: 58 },
     pebble_moss: { rx: 96, ry: 68 },
     pebble_seesaw: { rx: 108, ry: 58 },
+    home_bed: { rx: 84, ry: 54 },
+    home_water: { rx: 88, ry: 52 },
+    home_food: { rx: 64, ry: 40 },
+    home_play: { rx: 86, ry: 54 },
     hay_bale: { rx: 68, ry: 36 },
     slide: { rx: 78, ry: 48 },
     tunnel: { rx: 72, ry: 40 },
@@ -204,6 +208,162 @@ function assetUrl(path) {
         { id: "yard-seesaw", x: 275, y: 748, key: "pebble_seesaw" },
       ],
       start: { x: 512, y: 500 },
+    },
+    crystal_spring: {
+      spots: {
+        trough: { x: 710, y: 720, r: 80, stand: { x: 710, y: 810 }, action: "eat", label: "eat" },
+        basin:  { x: 680, y: 280, r: 80, stand: { x: 680, y: 370 }, action: "drink", label: "drink" },
+        bed:    { x: 290, y: 270, r: 86, stand: { x: 290, y: 360 }, sleep: { x: 290, y: 270 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 290, y: 270, key: "home_bed" },
+        { id: "care-water", x: 680, y: 280, key: "home_water" },
+        { id: "care-food", x: 710, y: 720, key: "home_food" },
+        { id: "home-play", x: 260, y: 700, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
+    },
+    plank_fort: {
+      spots: {
+        trough: { x: 680, y: 760, r: 80, stand: { x: 680, y: 850 }, action: "eat", label: "eat" },
+        basin:  { x: 740, y: 720, r: 80, stand: { x: 740, y: 810 }, action: "drink", label: "drink" },
+        bed:    { x: 720, y: 280, r: 86, stand: { x: 720, y: 370 }, sleep: { x: 720, y: 280 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 720, y: 280, key: "home_bed" },
+        { id: "care-water", x: 740, y: 720, key: "home_water" },
+        { id: "care-food", x: 680, y: 760, key: "home_food" },
+        { id: "home-play", x: 260, y: 720, key: "home_play" },
+        { id: "home-extra1", x: 260, y: 280, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
+    },
+    charm_nest: {
+      spots: {
+        trough: { x: 660, y: 760, r: 80, stand: { x: 660, y: 850 }, action: "eat", label: "eat" },
+        basin:  { x: 740, y: 740, r: 80, stand: { x: 740, y: 830 }, action: "drink", label: "drink" },
+        bed:    { x: 720, y: 280, r: 86, stand: { x: 720, y: 370 }, sleep: { x: 720, y: 280 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 720, y: 280, key: "home_bed" },
+        { id: "care-water", x: 740, y: 740, key: "home_water" },
+        { id: "care-food", x: 660, y: 760, key: "home_food" },
+        { id: "home-play", x: 240, y: 280, key: "home_play" },
+        { id: "home-extra1", x: 240, y: 720, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
+    },
+    lily_pond: {
+      spots: {
+        trough: { x: 720, y: 760, r: 80, stand: { x: 720, y: 850 }, action: "eat", label: "eat" },
+        basin:  { x: 700, y: 280, r: 80, stand: { x: 700, y: 370 }, action: "drink", label: "drink" },
+        bed:    { x: 260, y: 280, r: 86, stand: { x: 260, y: 370 }, sleep: { x: 260, y: 280 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 260, y: 280, key: "home_bed" },
+        { id: "care-water", x: 700, y: 280, key: "home_water" },
+        { id: "care-food", x: 720, y: 760, key: "home_food" },
+        { id: "home-play", x: 260, y: 720, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
+    },
+    fox_hollow: {
+      spots: {
+        trough: { x: 740, y: 780, r: 80, stand: { x: 740, y: 870 }, action: "eat", label: "eat" },
+        basin:  { x: 220, y: 760, r: 80, stand: { x: 220, y: 850 }, action: "drink", label: "drink" },
+        bed:    { x: 740, y: 280, r: 86, stand: { x: 740, y: 370 }, sleep: { x: 740, y: 280 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 740, y: 280, key: "home_bed" },
+        { id: "care-water", x: 220, y: 760, key: "home_water" },
+        { id: "care-food", x: 740, y: 780, key: "home_food" },
+        { id: "home-play", x: 260, y: 280, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
+    },
+    root_cave: {
+      spots: {
+        trough: { x: 680, y: 740, r: 80, stand: { x: 680, y: 830 }, action: "eat", label: "eat" },
+        basin:  { x: 760, y: 780, r: 80, stand: { x: 760, y: 870 }, action: "drink", label: "drink" },
+        bed:    { x: 260, y: 260, r: 86, stand: { x: 260, y: 350 }, sleep: { x: 260, y: 260 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 260, y: 260, key: "home_bed" },
+        { id: "care-water", x: 760, y: 780, key: "home_water" },
+        { id: "care-food", x: 680, y: 740, key: "home_food" },
+        { id: "home-play", x: 260, y: 740, key: "home_play" },
+        { id: "home-extra1", x: 720, y: 280, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
+    },
+    puppy_yard: {
+      spots: {
+        trough: { x: 720, y: 760, r: 80, stand: { x: 720, y: 850 }, action: "eat", label: "eat" },
+        basin:  { x: 720, y: 300, r: 80, stand: { x: 720, y: 390 }, action: "drink", label: "drink" },
+        bed:    { x: 280, y: 280, r: 86, stand: { x: 280, y: 370 }, sleep: { x: 280, y: 280 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 280, y: 280, key: "home_bed" },
+        { id: "care-water", x: 720, y: 300, key: "home_water" },
+        { id: "care-food", x: 720, y: 760, key: "home_food" },
+        { id: "home-play", x: 260, y: 740, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
+    },
+    cat_garden: {
+      spots: {
+        trough: { x: 700, y: 780, r: 80, stand: { x: 700, y: 870 }, action: "eat", label: "eat" },
+        basin:  { x: 760, y: 780, r: 80, stand: { x: 760, y: 870 }, action: "drink", label: "drink" },
+        bed:    { x: 720, y: 280, r: 86, stand: { x: 720, y: 370 }, sleep: { x: 720, y: 280 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
+      blockers: [
+        { id: "care-bed", x: 720, y: 280, key: "home_bed" },
+        { id: "care-water", x: 760, y: 780, key: "home_water" },
+        { id: "care-food", x: 700, y: 780, key: "home_food" },
+        { id: "home-play", x: 260, y: 740, key: "home_play" },
+        { id: "home-extra1", x: 260, y: 260, key: "home_play" },
+      ],
+      start: { x: 512, y: 520 },
     },
   };
 
@@ -2190,13 +2350,20 @@ function assetUrl(path) {
       if (this._hintTimer) { this._hintTimer.remove(false); this._hintTimer = null; }
       if (this.hint && this.hint.destroy) { this.hint.destroy(); this.hint = null; }
       const hintFid = currentFieldId();
-      const hintMsg = hintFid === "capy_spa"
-        ? "Tap the reeds, the bed, or a floating orange"
-        : hintFid === "autumn_den"
-        ? "Tap the berry bush, the den, the stream, or a leaf pile"
-        : hintFid === "pebble_yard"
-        ? "Tap the sun rock, the pond, the moss, or the seesaw"
-        : "Tap the food, water, bed, or a flower";
+      const HINTS = {
+        capy_spa: "Tap the reeds, the bed, or a floating orange",
+        autumn_den: "Tap the berry bush, the den, the stream, or a leaf pile",
+        pebble_yard: "Tap the sun rock, the pond, the moss, or the seesaw",
+        crystal_spring: "Tap the crystal rock, the spring, the cushion, or the perch",
+        plank_fort: "Tap the flower-pot nest, the pond, or the tunnels",
+        charm_nest: "Tap the stone nest, the birdbath, the stump, or the tree",
+        lily_pond: "Tap the straw hut, the lily pond, the trough, or the slide",
+        fox_hollow: "Tap the hollow log, the stream, the bowl, or the burrow",
+        root_cave: "Tap the root cave, the pond, the bug patch, or the log",
+        puppy_yard: "Tap the doghouse, the pool, the bowls, or the ball",
+        cat_garden: "Tap the basket, the bowls, the tunnel, or the scratch post",
+      };
+      const hintMsg = HINTS[hintFid] || "Tap the food, water, bed, or a flower";
       const scale = this.fScale || 1;
       this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, hintMsg, {
         fontFamily: "Lexend, sans-serif", fontSize: "16px", fontStyle: "600", color: "#4a3426",
@@ -3989,9 +4156,8 @@ function assetUrl(path) {
     return !!(a && a.length > 1);
   }
   function canPickItems() {
-    const id = currentFieldId();
-    // Food, water, and bed are painted into these maps; changing items would not show.
-    return !(id === "meadow" || id === "capy_spa" || id === "autumn_den" || id === "pebble_yard");
+    // Food, water, and bed are painted into every current field map.
+    return false;
   }
   async function openLooks() {
     try { state = Object.assign(state || {}, await MyPetApi.me()); } catch (e) {}
