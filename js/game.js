@@ -106,6 +106,10 @@ function assetUrl(path) {
     autumn_bush: { rx: 50, ry: 34 },
     autumn_den: { rx: 62, ry: 38 },
     autumn_tree: { rx: 40, ry: 28 },
+    pebble_rock: { rx: 92, ry: 48 },
+    pebble_pond: { rx: 108, ry: 58 },
+    pebble_moss: { rx: 96, ry: 68 },
+    pebble_seesaw: { rx: 108, ry: 58 },
     hay_bale: { rx: 68, ry: 36 },
     slide: { rx: 78, ry: 48 },
     tunnel: { rx: 72, ry: 40 },
@@ -149,7 +153,6 @@ function assetUrl(path) {
       beach: null,
       oranges: null,
       fallingLeaves: true,
-      pathGate: { x: 512, y: 820, r: 70, stand: { x: 512, y: 770 }, to: "meadow", arrive: { x: 512, y: 270 } },
       leafPiles: [
         { x: 230, y: 740, r: 64, stand: { x: 230, y: 800 } },
         { x: 700, y: 620, r: 64, stand: { x: 700, y: 685 } },
@@ -174,6 +177,33 @@ function assetUrl(path) {
         { id: "den-tree", x: 800, y: 250, key: "autumn_tree" },
       ],
       start: { x: 512, y: 700 },
+    },
+    pebble_yard: {
+      spots: {
+        trough: { x: 750, y: 715, r: 92, stand: { x: 600, y: 730 }, action: "eat", label: "eat" },
+        basin:  { x: 730, y: 305, r: 88, stand: { x: 730, y: 410 }, action: "drink", label: "drink" },
+        bed:    { x: 250, y: 285, r: 90, stand: { x: 250, y: 385 }, sleep: { x: 238, y: 252 }, action: "nap", label: "nap" },
+      },
+      park: false,
+      pool: null,
+      beach: null,
+      oranges: null,
+      walk: { x0: 170, y0: 200, x1: 870, y1: 825 },
+      seesaw: {
+        x: 275, y: 773, r: 110,
+        stand: { x: 280, y: 640 },
+        sit: { x: 220, y: 728 },
+        originX: 95 / 204,
+        originY: 80 / 116,
+        tip: 16,
+      },
+      blockers: [
+        { id: "care-bed", x: 250, y: 285, key: "pebble_rock" },
+        { id: "care-water", x: 730, y: 305, key: "pebble_pond" },
+        { id: "care-food", x: 750, y: 715, key: "pebble_moss" },
+        { id: "yard-seesaw", x: 275, y: 748, key: "pebble_seesaw" },
+      ],
+      start: { x: 512, y: 500 },
     },
   };
 
@@ -635,6 +665,10 @@ function assetUrl(path) {
     const id = currentFieldId();
     return FIELD_LAYOUTS[id] || FIELD_LAYOUTS.meadow;
   }
+  function walkBox() {
+    const L = fieldLayout();
+    return (L && L.walk) || WALK;
+  }
   function fieldSpots() {
     const L = fieldLayout();
     return (L && L.spots) || SPOTS;
@@ -1086,6 +1120,8 @@ function assetUrl(path) {
       img("wx_flake", "wx_flake.png");
       img("wx_leaf", "wx_leaf.png");
       img("meadow_fox_gate", "field_meadow_fox_gate.png");
+      img("prop_seesaw", "prop_seesaw.png");
+      img("prop_seesaw_pad", "prop_seesaw_pad.png");
       posePrefixes().forEach((pre) => {
         SHEEP_KEYS.forEach((k) => img(pre + "_" + k, pre + "_" + k + ".png"));
       });
@@ -1498,8 +1534,8 @@ function assetUrl(path) {
       this.showAnim(this.locoAnim());
     }
 
-    clamp(x) { return Phaser.Math.Clamp(x, WALK.x0, WALK.x1); }
-    clampY(y) { return Phaser.Math.Clamp(y, WALK.y0, WALK.y1); }
+    clamp(x) { const w = walkBox(); return Phaser.Math.Clamp(x, w.x0, w.x1); }
+    clampY(y) { const w = walkBox(); return Phaser.Math.Clamp(y, w.y0, w.y1); }
 
     footprintOf(key) {
       return FOOTPRINT[key] || { rx: 40, ry: 24 };
@@ -1669,7 +1705,8 @@ function assetUrl(path) {
     findGridPath(start, dest) {
       const step = 24;
       const snap = (v) => Math.round(v / step) * step;
-      const ok = (x, y) => x >= WALK.x0 && x <= WALK.x1 && y >= WALK.y0 && y <= WALK.y1 && !this.hitsBlocker(x, y);
+      const w = walkBox();
+      const ok = (x, y) => x >= w.x0 && x <= w.x1 && y >= w.y0 && y <= w.y1 && !this.hitsBlocker(x, y);
       const nudge = (x, y) => {
         if (ok(x, y)) return { x, y };
         for (let r = step; r <= step * 3; r += step) {
@@ -1947,6 +1984,7 @@ function assetUrl(path) {
       if (!this._wasInPool) this.dropOranges(true);
       this.syncLocomotion && this.syncLocomotion();
       if (this.placeFoxGate) this.placeFoxGate();
+      if (this.placeSeesaw) this.placeSeesaw();
       if (this.startFallingLeaves) this.startFallingLeaves();
       if (this._hintField !== currentFieldId()) {
         this._hintField = currentFieldId();
@@ -1957,10 +1995,100 @@ function assetUrl(path) {
     placeFoxGate() {
       if (this.foxGate) { this.foxGate.destroy(); this.foxGate = null; }
       const sp = currentSpecies();
-      const show = !!(sp && sp.id === "fox" && currentFieldId() === "meadow" && this.textures.exists("meadow_fox_gate"));
+      const show = false; // fox lives only in Autumn Den; meadow gate overlay retired
       if (!show) return;
       this.foxGate = this.add.image(this.fieldX, this.fieldY, "meadow_fox_gate")
         .setOrigin(0, 0).setScale(this.fScale).setDepth(4);
+    }
+
+    placeSeesaw() {
+      if (this.seesaw) { this.seesaw.destroy(); this.seesaw = null; }
+      if (this.seesawPad) { this.seesawPad.destroy(); this.seesawPad = null; }
+      const L = fieldLayout();
+      const sw = L && L.seesaw;
+      if (!sw || !this.textures.exists("prop_seesaw")) return;
+      const pos = this.toWorld(sw.x, sw.y);
+      const s = this.fScale || 1;
+      const ox = sw.originX != null ? sw.originX : 0.5;
+      const oy = sw.originY != null ? sw.originY : 0.5;
+      const depth = (pos.y || 0) + 1;
+      if (this.textures.exists("prop_seesaw_pad")) {
+        this.seesawPad = this.add.image(pos.x, pos.y, "prop_seesaw_pad")
+          .setOrigin(ox, oy).setScale(s).setDepth(depth - 1);
+      }
+      this.seesaw = this.add.image(pos.x, pos.y, "prop_seesaw")
+        .setOrigin(ox, oy).setScale(s).setDepth(depth);
+      this.seesaw.angle = 0;
+    }
+
+    playSeesaw() {
+      const L = fieldLayout();
+      const sw = L && L.seesaw;
+      if (!sw) return;
+      if (busy) return;
+      busy = true;
+      this.interruptNight();
+      const stand = sw.stand || { x: sw.x, y: sw.y - 80 };
+      const sit = sw.sit || { x: sw.x - 70, y: sw.y - 50 };
+      this.walkTo(stand.x, stand.y, () => {
+        this.mode = "hop";
+        this._hopping = true;
+        this.showAnim("happy");
+        const on = this.toWorld(sit.x, sit.y);
+        this.setFacing(on.x - (this.footX != null ? this.footX : this.sheep.x));
+        this.tweens.add({
+          targets: this.sheep, x: on.x, y: on.y, duration: 300, ease: "Quad.easeOut",
+          onUpdate: () => this.layoutWear(),
+          onComplete: () => {
+            if (!this._hopping) return;
+            const spr = this.seesaw;
+            const tip = sw.tip || 16;
+            const dip = 14 * (this.fScale || 1);
+            if (spr) {
+              this.tweens.add({
+                targets: spr, angle: tip, duration: 380, ease: "Quad.easeIn",
+                yoyo: true, hold: 120,
+                onComplete: () => {
+                  if (!spr.active) return;
+                  this.tweens.add({
+                    targets: spr, angle: -tip, duration: 480, ease: "Sine.easeInOut",
+                    yoyo: true,
+                    onComplete: () => { if (spr && spr.active) spr.angle = 0; },
+                  });
+                },
+              });
+            }
+            this.tweens.add({
+              targets: this.sheep, y: on.y + dip, duration: 380, ease: "Quad.easeIn",
+              yoyo: true, hold: 120,
+              onUpdate: () => this.layoutWear(),
+              onComplete: () => {
+                if (!this._hopping) return;
+                this.tweens.add({
+                  targets: this.sheep, y: on.y - dip, duration: 480, ease: "Sine.easeInOut",
+                  yoyo: true,
+                  onUpdate: () => this.layoutWear(),
+                  onComplete: () => {
+                    if (!this._hopping) return;
+                    const land = this.toWorld(stand.x, stand.y);
+                    this.tweens.add({
+                      targets: this.sheep, x: land.x, y: land.y, duration: 280, ease: "Quad.easeIn",
+                      onUpdate: () => this.layoutWear(),
+                      onComplete: () => {
+                        this.sheep.angle = 0;
+                        this.place(land.x, land.y);
+                        this._hopping = false;
+                        if (this.seesaw) this.seesaw.angle = 0;
+                        this.finishPlay("See-saw! 🪵");
+                      },
+                    });
+                  },
+                });
+              },
+            });
+          },
+        });
+      });
     }
 
     inAutumnStream(fx, fy) {
@@ -1991,6 +2119,8 @@ function assetUrl(path) {
         ? "Tap the reeds, the bed, or a floating orange"
         : hintFid === "autumn_den"
         ? "Tap the berry bush, the den, the stream, or a leaf pile"
+        : hintFid === "pebble_yard"
+        ? "Tap the sun rock, the pond, the moss, or the seesaw"
         : "Tap the food, water, bed, or a flower";
       const scale = this.fScale || 1;
       this.hint = this.add.text(W / 2, this.fieldY + 28 * scale, hintMsg, {
@@ -2061,10 +2191,6 @@ function assetUrl(path) {
     currentPathGate() {
       const L = fieldLayout();
       if (L && L.pathGate) return L.pathGate;
-      const sp = currentSpecies();
-      if (sp && sp.id === "fox" && currentFieldId() === "meadow") {
-        return { x: 512, y: 200, r: 74, stand: { x: 512, y: 260 }, to: "autumn_den", arrive: { x: 512, y: 760 } };
-      }
       return null;
     }
     tryPathGate(f) {
@@ -2560,12 +2686,19 @@ function assetUrl(path) {
           if (Math.hypot(f.x - pile.x, f.y - pile.y) <= pile.r) { this.playLeafPounce(pile); return; }
         }
       }
+      if (Ltap && Ltap.seesaw) {
+        const sw = Ltap.seesaw;
+        if (Math.hypot(f.x - sw.x, f.y - 748) <= (sw.r || 110)) {
+          this.playSeesaw();
+          return;
+        }
+      }
       if (Ltap && Ltap.park) {
         for (const [id, s] of Object.entries(PARK)) {
           if (Math.hypot(f.x - s.x, f.y - s.y) <= s.r) { this.playPark(s.kind); return; }
         }
       }
-      const flowers = (Ltap && (Ltap.pool || Ltap.fallingLeaves)) ? (Ltap.pool ? FLOWERS.filter((fl) => fl.y < 520) : []) : FLOWERS;
+      const flowers = (Ltap && Ltap.park) ? FLOWERS : (Ltap && Ltap.pool ? FLOWERS.filter((fl) => fl.y < 520) : []);
       for (const fl of flowers) {
         if (Math.hypot(f.x - fl.x, f.y - fl.y) < 36) { this.giftFlower(fl); return; }
       }
@@ -2600,7 +2733,7 @@ function assetUrl(path) {
         onUpdate: () => this.layoutWear(),
         onComplete: () => {
           doCare("eat").catch(() => {});
-          toast(currentFieldId() === "autumn_den" ? "Yum 🫐" : "Yum 🥕");
+          toast(currentFieldId() === "autumn_den" ? "Yum 🫐" : (currentFieldId() === "pebble_yard" ? "Yum 🌿" : "Yum 🥕"));
           this.goIdle();
           busy = false;
         },
@@ -2638,7 +2771,7 @@ function assetUrl(path) {
           this.time.delayedCall(900, () => this.floatSprite("zzz", this.sheep.x + 10, this.sheep.y - 100, 1600));
           this.time.delayedCall(1800, () => this.floatSprite("zzz", this.sheep.x + 32, this.sheep.y - 86, 1400));
           blip("nap");
-          toast("Night night 😴");
+          toast(currentFieldId() === "pebble_yard" ? "Sunny nap ☀️" : "Night night 😴");
           doCare("nap").catch(() => {});
           const stay = !!(window.MyPetWorld && MyPetWorld.isNight());
           if (stay) {
@@ -2748,6 +2881,10 @@ function assetUrl(path) {
       const L = fieldLayout();
       if (L && L.pool) {
         this.playSpaSplash();
+        return;
+      }
+      if (L && L.seesaw) {
+        this.playSeesaw();
         return;
       }
       if (L && L.leafPiles && L.leafPiles.length) {
@@ -3772,11 +3909,17 @@ function assetUrl(path) {
     }, 900);
   }
 
+  function canPickField(pet) {
+    const a = allowedFieldIds(pet || (state && state.pet));
+    return !!(a && a.length > 1);
+  }
   async function openLooks() {
     try { state = Object.assign(state || {}, await MyPetApi.me()); } catch (e) {}
     grantStaticUnlocks();
     renderHud();
     renderLooks();
+    const tabField = $("tabField");
+    if (tabField) tabField.classList.toggle("hidden", !canPickField());
     showLooksTab("looks");
     $("looks").classList.remove("hidden");
   }
@@ -3851,7 +3994,10 @@ function assetUrl(path) {
       if (tabs[id]) tabs[id].classList.toggle("on", which === id);
       if (panes[id]) panes[id].classList.toggle("hidden", which !== id);
     });
-    if (which === "field") renderFieldPicker();
+    if (which === "field") {
+      if (!canPickField()) { showLooksTab("looks"); return; }
+      renderFieldPicker();
+    }
     if (which === "items") renderItemsPicker();
   }
   function renderItemsPicker() {
@@ -4057,9 +4203,17 @@ function assetUrl(path) {
     if (!row || !window.MyPetWorld) return;
     if (!window._adoptPick) window._adoptPick = defaultAdoptPick("sheep_valais");
     if (!window._adoptPick.species) window._adoptPick.species = "sheep_valais";
-    if (!window._adoptPick.field) window._adoptPick.field = (window.MyPetSpecies && MyPetSpecies.of(window._adoptPick).defaultField) || "meadow";
+    const allowed = allowedFieldIds(window._adoptPick);
+    const home = (allowed && allowed[0]) || (window.MyPetSpecies && MyPetSpecies.of(window._adoptPick).defaultField) || "meadow";
+    if (!window._adoptPick.field || allowed.indexOf(window._adoptPick.field) < 0) window._adoptPick.field = home;
     row.innerHTML = "";
+    if (!allowed || allowed.length <= 1) {
+      row.style.display = "none";
+      return;
+    }
+    row.style.display = "";
     MyPetWorld.FIELDS.forEach((f) => {
+      if (allowed.indexOf(f.id) < 0) return;
       const b = document.createElement("button");
       b.type = "button";
       b.className = "adopt-field" + (window._adoptPick.field === f.id ? " on" : "");

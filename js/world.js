@@ -3,14 +3,15 @@
   const CYCLE_MS = 8 * 60 * 60 * 1000; // 8 real hours = 1 game day; 3 days / 24h
   const WX_SLOT_MS = 90 * 60 * 1000;   // weather holds ~1.5 hours
 
-  // Meadow plus per-species homes. Capybara stays in capy_spa; the fox may
-  // visit the meadow and Autumn Den; everyone else uses the meadow. Use the
-  // composite field_*.png files so this matches live GitHub Pages (bare
-  // files are not uploaded).
+  // Meadow plus per-species homes. Each pet lives only in their own field:
+  // fox = Autumn Den, capybara = Capy Spa, moss rock = Pebble Yard, and
+  // everyone else stays in the meadow. Use the composite field_*.png files
+  // so this matches live GitHub Pages (bare files are not uploaded).
   const FIELDS = [
     { id: "meadow", name: "Meadow",  emoji: "🌿", file: "field_meadow.png", thumb: "field_meadow_thumb.png" },
     { id: "capy_spa", name: "Capy Spa", emoji: "🍊", file: "field_capy_spa.png", thumb: "field_capy_spa_thumb.png" },
     { id: "autumn_den", name: "Autumn Den", emoji: "🍂", file: "field_autumn_den.png", thumb: "field_autumn_den_thumb.png" },
+    { id: "pebble_yard", name: "Pebble Yard", emoji: "🪨", file: "field_pebble_yard.png", thumb: "field_pebble_yard_thumb.png" },
   ];
   const FIELD_IDS = FIELDS.map((f) => f.id);
 
@@ -184,12 +185,12 @@
       want = (sp && (sp.field || sp.defaultField)) || "meadow";
       speciesId = sp && sp.id;
     }
-    // Fox starts in the meadow and can take the path gate to their den.
-    // Capybara stays spa-only; every other pet stays meadow-only.
-    if (speciesId === "fox") {
-      const foxFields = ["meadow", "autumn_den"].filter((id) => all.indexOf(id) >= 0);
-      if (foxFields.length) return foxFields;
-    }
+    // Each species stays in its own home. Saved foxes that were left in the
+    // meadow are clamped to Autumn Den by clampFieldId.
+    if (speciesId === "fox") want = "autumn_den";
+    else if (speciesId === "capybara") want = "capy_spa";
+    else if (speciesId === "rock") want = "pebble_yard";
+    else want = "meadow";
     if (all.indexOf(want) >= 0) return [want];
     return all.indexOf("meadow") >= 0 ? ["meadow"] : all;
   }
