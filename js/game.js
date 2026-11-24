@@ -230,21 +230,23 @@ function assetUrl(path) {
     },
     plank_fort: {
       spots: {
-        trough: { x: 680, y: 760, r: 80, stand: { x: 680, y: 850 }, action: "eat", label: "eat" },
-        basin:  { x: 740, y: 720, r: 80, stand: { x: 740, y: 810 }, action: "drink", label: "drink" },
-        bed:    { x: 720, y: 280, r: 86, stand: { x: 720, y: 370 }, sleep: { x: 720, y: 280 }, action: "nap", label: "nap" },
+        trough: { x: 727, y: 790, r: 45, stand: { x: 795, y: 825 }, face: "left", action: "eat", label: "eat" },
+        basin:  { x: 745, y: 735, r: 60, stand: { x: 700, y: 705 }, face: "left", action: "drink", label: "drink" },
+        bed:    { x: 740, y: 290, r: 86, stand: { x: 720, y: 402 }, sleep: { x: 740, y: 290 }, nap: { x: 735, y: 344, flip: false }, action: "nap", label: "nap" },
       },
-      park: false,
-      pool: null,
-      beach: null,
-      oranges: null,
+      park: false, pool: null, beach: null, oranges: null,
       walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
       blockers: [
-        { id: "care-bed", x: 720, y: 280, key: "home_bed" },
-        { id: "care-water", x: 740, y: 720, key: "home_water" },
-        { id: "care-food", x: 680, y: 760, key: "home_food" },
-        { id: "home-play", x: 260, y: 720, key: "home_play" },
-        { id: "home-extra1", x: 260, y: 280, key: "home_play" },
+        { id: "rat-fort", x: 300, y: 330, rx: 130, ry: 70 },
+        { id: "care-bed", x: 760, y: 300, rx: 90, ry: 55 },
+        { id: "rat-logs", x: 250, y: 720, rx: 85, ry: 45 },
+        { id: "rat-box", x: 405, y: 715, rx: 45, ry: 30 },
+        { id: "care-water", x: 745, y: 745, rx: 120, ry: 45 },
+      ],
+      fronts: [{ key: "front_rat_pot", x: 770, y: 192, base: 352 }],
+      plays: [
+        { id: "post", kind: "climb", x: 285, y: 240, r: 80, stand: { x: 330, y: 440 }, steps: [{ x: 300, y: 300 }, { x: 279, y: 206 }], say: "I can see everything!", msg: "Top of the post! 🐀" },
+        { id: "box", kind: "sniff", x: 405, y: 712, r: 50, stand: { x: 488, y: 770 }, msg: "Sniff sniff 🐀" },
       ],
       start: { x: 512, y: 520 },
     },
@@ -940,7 +942,7 @@ function assetUrl(path) {
     // Feet origin (0.5, 1): put the body, not the feet, on the sleep spot.
     return scene.toWorld(sleep.x, sleep.y + Math.round(h * 0.42));
   }
-  const FRONT_KEYS = ["front_cat_bed", "front_cat_bowls", "front_dog_bowls", "front_dog_house", "front_dog_pool", "front_duck_box", "front_crow_nest"];
+  const FRONT_KEYS = ["front_cat_bed", "front_cat_bowls", "front_dog_bowls", "front_dog_house", "front_dog_pool", "front_duck_box", "front_crow_nest", "front_rat_pot"];
   function fieldSpots() {
     const L = fieldLayout();
     return (L && L.spots) || SPOTS;
@@ -2437,7 +2439,7 @@ function assetUrl(path) {
         autumn_den: "Tap the berry bush, the den, the stream, or a leaf pile",
         pebble_yard: "Tap the sun rock, the pond, the moss, or the seesaw",
         crystal_spring: "Tap the crystal rock, the spring, the cushion, or the perch",
-        plank_fort: "Tap the flower-pot nest, the pond, or the tunnels",
+        plank_fort: "Tap the flower-pot nest, the pond, the seeds, the post, or the box",
         charm_nest: "Tap the stone nest, the birdbath, the stump, or the tree",
         lily_pond: "Tap the straw hut, the lily pond, the trough, or the slide",
         fox_hollow: "Tap the hollow log, the stream, the bowl, or the burrow",
