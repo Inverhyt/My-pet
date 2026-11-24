@@ -250,21 +250,23 @@ function assetUrl(path) {
     },
     charm_nest: {
       spots: {
-        trough: { x: 660, y: 760, r: 80, stand: { x: 660, y: 850 }, action: "eat", label: "eat" },
-        basin:  { x: 740, y: 740, r: 80, stand: { x: 740, y: 830 }, action: "drink", label: "drink" },
-        bed:    { x: 720, y: 280, r: 86, stand: { x: 720, y: 370 }, sleep: { x: 720, y: 280 }, action: "nap", label: "nap" },
+        trough: { x: 712, y: 790, r: 45, stand: { x: 745, y: 792 }, face: "left", action: "eat", label: "eat" },
+        basin:  { x: 775, y: 735, r: 50, stand: { x: 812, y: 752 }, face: "left", action: "drink", label: "drink" },
+        bed:    { x: 770, y: 260, r: 86, stand: { x: 770, y: 392 }, sleep: { x: 770, y: 260 }, nap: { x: 772, y: 292, flip: false }, action: "nap", label: "nap" },
       },
-      park: false,
-      pool: null,
-      beach: null,
-      oranges: null,
+      park: false, pool: null, beach: null, oranges: null,
       walk: { x0: 160, y0: 170, x1: 860, y1: 850 },
       blockers: [
-        { id: "care-bed", x: 720, y: 280, key: "home_bed" },
-        { id: "care-water", x: 740, y: 740, key: "home_water" },
-        { id: "care-food", x: 660, y: 760, key: "home_food" },
-        { id: "home-play", x: 240, y: 280, key: "home_play" },
-        { id: "home-extra1", x: 240, y: 720, key: "home_play" },
+        { id: "crow-tree", x: 270, y: 360, rx: 70, ry: 25 },
+        { id: "care-bed", x: 770, y: 300, rx: 95, ry: 50 },
+        { id: "crow-stump", x: 275, y: 720, rx: 65, ry: 35 },
+        { id: "care-water", x: 775, y: 735, rx: 70, ry: 35 },
+        { id: "care-food", x: 712, y: 790, rx: 55, ry: 22 },
+      ],
+      fronts: [{ key: "front_crow_nest", x: 694, y: 255, base: 300 }],
+      plays: [
+        { id: "perch", kind: "perch", x: 300, y: 270, r: 95, stand: { x: 395, y: 420 }, top: { x: 328, y: 292 }, msg: "Caw! 🌳" },
+        { id: "shiny", kind: "shiny", x: 285, y: 735, r: 80, stand: { x: 335, y: 800 }, coin: { x: 290, y: 778 }, msg: "Shiny treasure! ✨" },
       ],
       start: { x: 512, y: 520 },
     },
@@ -938,7 +940,7 @@ function assetUrl(path) {
     // Feet origin (0.5, 1): put the body, not the feet, on the sleep spot.
     return scene.toWorld(sleep.x, sleep.y + Math.round(h * 0.42));
   }
-  const FRONT_KEYS = ["front_cat_bed", "front_cat_bowls", "front_dog_bowls", "front_dog_house", "front_dog_pool", "front_duck_box"];
+  const FRONT_KEYS = ["front_cat_bed", "front_cat_bowls", "front_dog_bowls", "front_dog_house", "front_dog_pool", "front_duck_box", "front_crow_nest"];
   function fieldSpots() {
     const L = fieldLayout();
     return (L && L.spots) || SPOTS;
